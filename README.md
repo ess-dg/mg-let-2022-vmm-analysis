@@ -17,3 +17,4 @@ Navigate to 'mg-let-2022-vmm-analysis' and enter:
 ```
 jupyter lab
 ```
+The analysis can then be performed using the notebooks in the 'mg-let-2022-vmm-analysis/notebooks'-folder.
