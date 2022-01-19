@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-mg_vmm_read.py: Contains functions which imports and clusters data from the
-                Multi-Grid detector obtained with the VMM read-out system.
+mg_vmm_read.py: Contains functions which imports data from the Multi-Grid
+                detector obtained with the VMM read-out system.
 """
 
 import os
