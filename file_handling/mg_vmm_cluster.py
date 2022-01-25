@@ -31,14 +31,16 @@ def cluster_vmm_data(events_df):
     # Pre-allocated space for clusters
     clusters_dict = {'wch': (-1) * np.ones([est_size], dtype=int),
                      'gch_max': (-1) * np.ones([est_size], dtype=int),
-                     'gch_cog': (-1) * np.ones([est_size], dtype=int),
+                     'gch_cog': np.zeros([est_size], dtype=float),
                      'wadc': np.zeros([est_size], dtype=int),
                      'gadc_sum': np.zeros([est_size], dtype=int),
                      'wm': np.zeros([est_size], dtype=int),
                      'gm': np.zeros([est_size], dtype=int),
                      'time': (-1) * np.ones([est_size], dtype=int),
-                     'tof': (-1) * np.ones([est_size], dtype=int),
-                     'gchs_adjacent': np.zeros([est_size], dtype=int)}
+                     'tof': (-1) * np.ones([est_size], dtype=float),
+                     'fen': (-1) * np.ones([est_size], dtype=int),
+                     'gchs_adjacent': np.zeros([est_size], dtype=int),
+                     'same_fen': np.zeros([est_size], dtype=int)}
     
     # Get indices of data columns for events
     idx_PulseTimeHI = column_labels.index('PulseTimeHI')
@@ -51,71 +53,84 @@ def cluster_vmm_data(events_df):
     idx_vmm = column_labels.index('vmm')
     idx_channel = column_labels.index('channel')
     idx_adc = column_labels.index('adc')
+    idx_fen = column_labels.index('fen')
     
     # Iterate through data
     idx_cluster = 0
-    max_wadc, max_gadc, cluster_size = 0, 0, 1
+    max_wadc, max_gadc, grids_in_cluster = 0, 0, 0
+    same_fen = True
+    cluster_fen = -1
     gch_min, gch_max = np.inf, -np.inf
     start_time = -np.inf
     for event in events_np:
         # Extract event parameters
-        time = event[idx_PulseTimeHI] + event[idx_PulseTimeLO] * LO_to_s
+        time = event[idx_time_hi] + event[idx_time_lo] * LO_to_s
         adc = event[idx_adc]
         vmm = event[idx_vmm]
         channel = event[idx_channel]
-        is_wire = vmm < 4
+        fen = event[idx_fen]
+        if fen != cluster_fen: same_fen = False
+        is_wire = vmm < 2
         # Check if event is in same cluster
-        if (time - start_time) < time_window:
+        if 0 <= (time - start_time) <= time_window:
             # Continue on current cluster
-            cluster_size += 1
             if is_wire:
                 # Wires
                 clusters_dict['wadc'][idx_cluster] += adc
                 clusters_dict['wm'][idx_cluster] += 1
                 if adc > max_wadc:
                     max_wadc = adc
-                    wch = (vmm // 2) * (-32) + vmm * 64 + channel
+                    wch = vmm * 64 + channel - 32
                     clusters_dict['wch'][idx_cluster] = wch
             else: 
                 # Grids
                 clusters_dict['gadc_sum'][idx_cluster] += adc
                 clusters_dict['gm'][idx_cluster] += 1
-                gch = (vmm - 4) * 51 + channel
+                gch = channel
+                adc_gch = adc * gch
                 clusters_dict['gch_cog'][idx_cluster] += adc * gch
                 if adc > max_gadc:
                     max_gadc = adc
                     clusters_dict['gch_max'][idx_cluster] = gch
                 if channel > gch_max: gch_max = channel
                 if channel < gch_min: gch_min = channel
+                grids_in_cluster += 1
         else:
             # End current cluster
-            if (gch_max - gch_min) == (cluster_size - 1):
+            if ((gch_max - gch_min) == (grids_in_cluster - 1)):
                 clusters_dict['gchs_adjacent'][idx_cluster] = 1
+            if same_fen:
+                clusters_dict['same_fen'][idx_cluster] = 1
             grid_charge_total = clusters_dict['gadc_sum'][idx_cluster]
             if grid_charge_total > 0:
                 clusters_dict['gch_cog'][idx_cluster] *= (1/grid_charge_total)
             # Start new cluster
             idx_cluster += 1
-            cluster_size = 1
+            grids_in_cluster = 0
             gch_min, gch_max = np.inf, -np.inf
+            max_wadc, max_gadc = 0, 0
             start_time = time
+            cluster_fen, same_fen = event[idx_fen], True
             # Insert wadc, gadc, gch and wch
             if is_wire:
                 # Wires
                 clusters_dict['wadc'][idx_cluster] += adc
                 clusters_dict['wm'][idx_cluster] += 1
                 max_wadc = adc
-                wch = (vmm // 2) * (-32) + vmm * 64 + channel
+                wch = vmm * 64 + channel - 32
                 clusters_dict['wch'][idx_cluster] = wch
             else:
                 # Grids
                 clusters_dict['gadc_sum'][idx_cluster] += adc
                 clusters_dict['gm'][idx_cluster] += 1
                 max_gadc = adc
-                gch = (vmm - 4) * 51 + channel
+                gch = channel
                 clusters_dict['gch_max'][idx_cluster] = gch
                 if channel > gch_max: gch_max = channel
                 if channel < gch_min: gch_min = channel
+                grids_in_cluster += 1
+            # Insert fen
+            clusters_dict['fen'][idx_cluster] = cluster_fen
             # Insert tof
             PrevPulseTime = event[idx_PrevPulseTimeHI] + event[idx_PrevPulseTimeLO] * LO_to_s
             PulseTime = event[idx_PulseTimeHI] + event[idx_PulseTimeLO] * LO_to_s
@@ -126,10 +141,13 @@ def cluster_vmm_data(events_df):
                 tof = time - PulseTime
             clusters_dict['tof'][idx_cluster] = tof
             clusters_dict['time'][idx_cluster] = time
+            
     
     # Remove empty elements
     for key in clusters_dict:
-        clusters_dict[key] = clusters_dict[key][1:idx_cluster+1] # Start at index 1 to throw away first dummy cluster
+        # Start at index 1 to throw away first dummy
+        # End one cluster from end to throw away potentially incomplete clusters
+        clusters_dict[key] = clusters_dict[key][1:idx_cluster]
     
     # Convert to dataframe
     clusters_df = pd.DataFrame(clusters_dict)
