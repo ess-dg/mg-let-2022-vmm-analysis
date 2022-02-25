@@ -64,22 +64,23 @@ def read_vmm_data(file_path):
             readouts = [data[i:i+event_size] for i in range(start, end, event_size)]
             # Extract event data
             for j, readout in enumerate(readouts):
-                events_dict['ring'][counter] = readout[0]
-                events_dict['fen'][counter] = readout[1]
-                events_dict['length'][counter] = int.from_bytes(readout[2:4], byteorder='little')
-                events_dict['time_hi'][counter] = int.from_bytes(readout[4:8], byteorder='little')
-                events_dict['time_lo'][counter] = int.from_bytes(readout[8:12], byteorder='little')
-                events_dict['bc'][counter] = int.from_bytes(readout[12:14], byteorder='little')
-                events_dict['ot'][counter] = int.from_bytes(readout[14:16], byteorder='little') >> 15
-                events_dict['adc'][counter] = int.from_bytes(readout[14:16], byteorder='little') & 0x3FF
-                events_dict['om'][counter] = readout[16] >> 7
-                events_dict['geo'][counter] = readout[16] & 0x3F
-                events_dict['tdc'][counter] = readout[17]
-                events_dict['vmm'][counter] = readout[18]
-                events_dict['channel'][counter] = readout[19]
-                events_dict['packet_number'][counter] = i + 1
-                events_dict['readout_number'][counter] = j + 1
-                counter += 1
+                if len(readout) == 20:
+                    events_dict['ring'][counter] = readout[0]
+                    events_dict['fen'][counter] = readout[1]
+                    events_dict['length'][counter] = int.from_bytes(readout[2:4], byteorder='little')
+                    events_dict['time_hi'][counter] = int.from_bytes(readout[4:8], byteorder='little')
+                    events_dict['time_lo'][counter] = int.from_bytes(readout[8:12], byteorder='little')
+                    events_dict['bc'][counter] = int.from_bytes(readout[12:14], byteorder='little')
+                    events_dict['ot'][counter] = int.from_bytes(readout[14:16], byteorder='little') >> 15
+                    events_dict['adc'][counter] = int.from_bytes(readout[14:16], byteorder='little') & 0x3FF
+                    events_dict['om'][counter] = readout[16] >> 7
+                    events_dict['geo'][counter] = readout[16] & 0x3F
+                    events_dict['tdc'][counter] = readout[17]
+                    events_dict['vmm'][counter] = readout[18]
+                    events_dict['channel'][counter] = readout[19]
+                    events_dict['packet_number'][counter] = i + 1
+                    events_dict['readout_number'][counter] = j + 1
+                    counter += 1
             # Extract header data
             idxs = np.arange(counter-len(readouts), counter, 1)
             events_dict['instrument_id'][idxs] = data[idx_0]
