@@ -225,8 +225,7 @@ def extract_clusters(data):
             bus = (word & BUS_MASK) >> BUS_SHIFT
             if previous_bus != bus: different_bus_flag = 1
             # Wires in bus 0 have channels between 0->63 and bus 1 have chanels betwwen 0 -> 33
-            if 0 <= channel <= 63:
-                if bus==0 | (bus==1 & 0 <= channel <= 33)
+            if (0 <= channel <= 63) & (bus==0 | (bus==1 & 0 <= channel <= 33)):
                     # Save cluster data
                     ce_dict['wadc'][ce_index] += adc
                     ce_dict['wm'][ce_index] += 1
@@ -328,8 +327,7 @@ def extract_events(data):
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
             # Wires in bus 0 have channels between 0->63 and 0 -> 33 in bus 1
-            if 0 <= channel <= 63:
-                if buss==0 or buss==1 and (0 <= channel <= 33):
+            if (0 <= channel <= 63) & (bus==0 | (bus==1 & 0 <= channel <= 33)):
                     # Save event data and increase event index and event count
                     e_dict['bus'][e_index] = bus
                     e_dict['ch'][e_index] = channel ^ 1
