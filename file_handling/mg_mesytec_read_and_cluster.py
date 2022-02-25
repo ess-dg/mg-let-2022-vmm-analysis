@@ -224,15 +224,16 @@ def extract_clusters(data):
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
             if previous_bus != bus: different_bus_flag = 1
-            # Wires have channels between 0->79
-            if 0 <= channel <= 79:
-                # Save cluster data
-                ce_dict['wadc'][ce_index] += adc
-                ce_dict['wm'][ce_index] += 1
-                # Use wire with largest collected charge as hit position
-                if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, channel ^ 1
-            # Grids have channels between 80->119
-            elif 80 <= channel <= 119:
+            # Wires in bus 0 have channels between 0->63 and bus 1 have chanels betwwen 0 -> 33
+            if 0 <= channel <= 63:
+                if bus==0 | (bus==1 & 0 <= channel <= 33)
+                    # Save cluster data
+                    ce_dict['wadc'][ce_index] += adc
+                    ce_dict['wm'][ce_index] += 1
+                    # Use wire with largest collected charge as hit position
+                    if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, channel ^ 1
+            # Grids in bus 0 have channels between 64->100
+            elif bus==0 & (64 <= channel <= 100):
                 # Save cluster data, and check if current channel collected most charge
                 ce_dict['gadc'][ce_index] += adc
                 ce_dict['gm'][ce_index] += 1
@@ -326,16 +327,17 @@ def extract_events(data):
             channel = ((word & CHANNEL_MASK) >> CHANNEL_SHIFT)
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
-            # Wires have channels between 0->79
-            if 0 <= channel <= 79:
-                # Save event data and increase event index and event count
-                e_dict['bus'][e_index] = bus
-                e_dict['ch'][e_index] = channel ^ 1
-                e_dict['adc'][e_index] = adc
-                e_index += 1
-                e_count += 1
-            # Grids have channels between 80->119
-            elif 80 <= channel <= 119:
+            # Wires in bus 0 have channels between 0->63 and 0 -> 33 in bus 1
+            if 0 <= channel <= 63:
+                if buss==0 or buss==1 and (0 <= channel <= 33):
+                    # Save event data and increase event index and event count
+                    e_dict['bus'][e_index] = bus
+                    e_dict['ch'][e_index] = channel ^ 1
+                    e_dict['adc'][e_index] = adc
+                    e_index += 1
+                    e_count += 1
+            # Grids have channels between 64->100 in bus 0 (bus 1 has no grids assigned to it)
+            elif bus==0 & (64 <= channel <= 100):
                 # Save event data and increase event index and event count
                 e_dict['bus'][e_index] = bus
                 e_dict['ch'][e_index] = channel
