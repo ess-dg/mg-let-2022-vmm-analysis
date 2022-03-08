@@ -244,7 +244,8 @@ def extract_clusters(data):
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
             # Wires in bus 0 have channels between 0->63 and bus 1 have chanels betwwen 0 -> 31
-            if (bus==0 |bus==1) & (0 <= channel <= 63):
+            #if (0 <= channel <= 63):
+            if (bus==0) &(0<=channel <=79):
                 ce_dict['bus'][ce_index] = 9
                 if bus == 0:
                     ce_dict['wch'][ce_index] = channel ^ 1
@@ -257,7 +258,8 @@ def extract_clusters(data):
                 # Use wire with largest collected charge as hit position
                 if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, channel ^ 1
             # Grids in bus 0 have channels between 64->100
-            elif bus==0 & (64 <= channel <= 100):
+            #elif bus==0 & (64 <= channel <= 100):
+            elif bus==0 & (80 <= channel <= 119):
                 ce_dict['bus'][ce_index] = 9
                 ce_dict['gm'][ce_index] += 1
                 if ce_dict['gm'][ce_index]==1:
@@ -316,9 +318,8 @@ def extract_clusters(data):
             break
         if i % 1000000 == 1:
             percentage_finished = int(round((i/len(data))*100))
-            if percentage_finished>0:
+            if percentage_finished>100:
                 stop=True
-            os.system('cls' if os.name == 'nt' else "printf '\033c'")    
             print('Percentage: %d' % percentage_finished)
 
     # Remove empty elements in clusters and save in DataFrame for easier analysis
