@@ -160,7 +160,7 @@ def clusters_2d_plot(clusters, title, vmin, vmax, duration):
     """
 
     plt.hist2d(clusters.wch, clusters.gch, bins=[80, 40],
-               range=[[-0.5, 79.5], [79.5, 119.5]],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
                norm=LogNorm(vmin=vmin, vmax=vmax),
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wch)))
@@ -287,7 +287,7 @@ def grid_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.gch, bins=40, zorder=4, range=[79.5, 119.5],
+    plt.hist(clusters.gch, bins=40, zorder=4, range=[96.5, 132.5],
              weights=(1/duration)*np.ones(len(clusters.gch)),
              histtype='step', color='black')
 
@@ -317,7 +317,7 @@ def wire_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.wch, bins=80, zorder=4, range=[-0.5, 79.5],
+    plt.hist(clusters.wch, bins=80, zorder=4, range=[-0.5, 95.5],
              weights=(1/duration)*np.ones(len(clusters.wch)),
              histtype='step', color='black')
 
@@ -454,3 +454,39 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,
     plt.tight_layout()
     output_path = '../output/%s_summary_bus_%d.png' % (run, bus)
     fig.savefig(output_path, bbox_inches='tight')
+# ==============================================================================
+#                  PLOT ALL BASIC PLOTS FOR TWO OR MORE BUSSES 
+# ==============================================================================
+
+def mg_plot_grid_distrobution(clusters_unfiltered,gm,num_to_plot,
+                      plot_title=''):
+    """
+    Function to plot the charge distrobution for the detection with the most grids connected to it.
+    This to be able to see if the "brag peak" is pressent in the case of more grids being activated. Returns number of events with this multiplicety for the data provided.
+
+    """
+    plt.clf()
+    plotting_hf.set_thick_labels(15)
+    
+    indx_most_grids=(clusters_unfiltered.gm).idxmax()
+    indx_most_charge=(clusters_unfiltered.gadc).idxmax()
+    
+    clusters = clusters_unfiltered[clusters_unfiltered.gm==gm]
+    #print(clusters)
+    index=clusters.index.tolist()
+    num_itms=len(index)
+    if num_itms> num_to_plot:
+        index=index[0:num_to_plot-1]
+    if num_itms<=0: 
+        print('No events with this multiplicety: ', gm)
+        return 0
+        
+    print('Number of events with this multiplicety: ', num_itms)
+    for ind in index:
+        channel_nr=[clusters.gcha[ind], clusters.gchb[ind],           clusters.gchc[ind],clusters.gchd[ind],clusters.gche[ind]]
+        charge=[clusters.gadca[ind], clusters.gadcb[ind], clusters.gadcc[ind],clusters.gadcd[ind],clusters.gadce[ind]]
+        plt.scatter(channel_nr,charge)
+        print('The number of "skipped" grids are: ',clusters.max_dist[ind])
+        plt.show()
+    return num_itms  
+    

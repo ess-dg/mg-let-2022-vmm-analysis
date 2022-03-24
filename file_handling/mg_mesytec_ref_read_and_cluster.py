@@ -13,6 +13,7 @@ import zipfile
 import re
 import numpy as np
 import pandas as pd
+from IPython.display import clear_output
 
 
 # =============================================================================
@@ -189,26 +190,19 @@ def extract_clusters(data):
     ce_dict = {'bus': (-1) * np.ones([size], dtype=int),
                'time': (-1) * np.ones([size], dtype=int),
                'tof': (-1) * np.ones([size], dtype=int),
-               'gridch': np.ones([size], dtype=str),
-               'gridadc': np.ones([size], dtype=str),
+               'gridch': (-1)*np.ones((size,37),dtype=int),
+               'gridadc': np.zeros((size,37),dtype=int),
                'wch': (-1) * np.ones([size], dtype=int),
-               'gch1': (-1) * np.ones([size], dtype=int),
-               'gch2': (-1) * np.ones([size], dtype=int),
-               'gch3': (-1) * np.ones([size], dtype=int),
-               'gch4': (-1) * np.ones([size], dtype=int),
-               'gch5': (-1) * np.ones([size], dtype=int),
-               'gadc1': np.zeros([size], dtype=int),
-               'gadc2': np.zeros([size], dtype=int),
-               'gadc3': np.zeros([size], dtype=int),
-               'gadc4': np.zeros([size], dtype=int),
-               'gadc5': np.zeros([size], dtype=int),
                'gch': (-1) * np.ones([size], dtype=int),
+               'gch_max': (-1) * np.ones([size], dtype=int),
                'wadc': np.zeros([size], dtype=int),
                'gadc': np.zeros([size], dtype=int),
                'wm': np.zeros([size], dtype=int),
                'gm': np.zeros([size], dtype=int),
                'flag_unconnected': (-1) * np.ones([size], dtype=int),
-               'max_dist': np.zeros([size], dtype=int)}
+               'max_dist': np.zeros([size], dtype=int),
+               'bus_sub': (-1) * np.ones([size], dtype=int)}
+    np.full([size], "", dtype=np.object)
                 
     # Declare temporary boolean variables, related to words
     is_open, is_trigger, is_data, is_exts = False, False, False, False
@@ -217,6 +211,7 @@ def extract_clusters(data):
     max_adc_w, max_adc_g = 0, 0
     here1=False
     here2=False
+    here3=False
     stop=False
     # Declare variables that track time and index for events and clusters
     time, trigger_time, ce_index = 0, 0, -1
@@ -224,8 +219,8 @@ def extract_clusters(data):
     for i, word in enumerate(data):
         # Five possibilities: Header, DataBusStart, DataEvent, DataExTs or EoE.
         if (word & TYPE_MASK) == HEADER:
-            gr_ch =''
-            gr_adc= ''
+            str_grch=' '
+            str_gradc= ' '
             is_open = True
             is_trigger = (word & TRIGGER_MASK) == TRIGGER
         elif ((word & DATA_MASK) == DATA_BUS_START) & is_open:
@@ -242,46 +237,41 @@ def extract_clusters(data):
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
             # Wires in bus 0 have channels between 0->63 and bus 1 have chanels betwwen 0 -> 31
-            if (bus==0 |bus==1) & (0 <= channel <= 63):
-                ce_dict['bus'][ce_index] = 9
-                if bus == 0:
-                    ce_dict['wch'][ce_index] = channel ^ 1
-                elif bus==1 & (0 <= channel <= 31):
-                    # Save to new channels so all wires are beside eachother in the same bus
-                    ce_dict['wch'][ce_index] = (64+channel) ^ 1
-                # Save cluster data
-                ce_dict['wadc'][ce_index] += adc
-                ce_dict['wm'][ce_index] += 1
-                # Use wire with largest collected charge as hit position
-                if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, channel ^ 1
-            # Grids in bus 0 have channels between 64->100
-            elif bus==0 & (64 <= channel <= 100):
-                ce_dict['bus'][ce_index] = 9
-                ce_dict['gm'][ce_index] += 1
-                if ce_dict['gm'][ce_index]==1:
-                    ce_dict['gch1'][ce_index]=channel+32
-                    ce_dict['gadc1'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==2:
-                    ce_dict['gch2'][ce_index]=channel+32
-                    ce_dict['gadc2'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==3:
-                    ce_dict['gch3'][ce_index]=channel+32
-                    ce_dict['gadc3'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==4:
-                    ce_dict['gch4'][ce_index]=channel+32
-                    ce_dict['gadc4'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==5:
-                    ce_dict['gch5'][ce_index]=channel+32
-                    ce_dict['gadc5'][ce_index]=adc
-                else:
-                    pass
-                ce_dict['gridch'][ce_index] += "," + str(channel+32)
-                ce_dict['gridadc'][ce_index] += "," + str(adc)
-                ce_dict['gadc'][ce_index] += adc
-                # Use grid with largest collected charge as hit position
-                if adc > max_adc_g: max_adc_g, ce_dict['gch'][ce_index] = adc, channel
-            else:
-                pass
+            bus_bool= (bus==2 or bus==3)
+            channel_bool=(0 <= channel <= 79)
+            if ( bus_bool and channel_bool ):
+                ch_new=reorder_w_channles(channel)
+                if ch_new != -1:
+                    if ((bus == 3) and (0 <= ch_new <= 32)):
+                        # Save to new channels so all wires are beside eachother in the same bus
+                        ce_dict['bus'][ce_index] = 9
+                        ce_dict['wadc'][ce_index] += adc
+                        ce_dict['wm'][ce_index] += 1
+                        ce_dict['bus_sub'][ce_index]=bus
+                        if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, ch_new ^ 1
+                    elif (bus==2):
+                        # Save to new channels so all wires are beside eachother in the same bus
+                        ce_dict['bus'][ce_index] = 9
+                        ce_dict['wadc'][ce_index] += adc
+                        ce_dict['wm'][ce_index] += 1
+                        ce_dict['bus_sub'][ce_index]=bus
+                        if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, (32+ch_new) ^ 1
+                    else:
+                        pass
+            # Grids in bus 2 have channels 0 to 119
+            elif (bus==2) and (80 <= channel <= 119):
+                # Give new channelnumber
+                ch_new = reorder_gr_channles(channel)
+                if (ch_new != -1):
+                    # Rename bus to bus 9
+                    ce_dict['bus'][ce_index] = 9
+                    ce_dict['gridch'][ce_index][ce_dict['gm'][ce_index]]=ch_new
+                    ce_dict['gridadc'][ce_index][ce_dict['gm'][ce_index]]=adc
+                    ce_dict['gm'][ce_index] += 1
+                    ce_dict['bus_sub'][ce_index]=bus
+                    ce_dict['gadc'][ce_index] += adc
+                    # Use grid with largest collected charge as hit position
+                    if adc > max_adc_g: max_adc_g, ce_dict['gch_max'][ce_index] = adc, ch_new
         elif ((word & DATA_MASK) == DATA_EXTS) & is_open:
             extended_time_stamp = (word & EXTS_MASK) << EXTS_SHIFT
             is_exts = True
@@ -296,13 +286,30 @@ def extract_clusters(data):
                 ce_dict['time'][ce_index] = time
                 ce_dict['tof'][ce_index] = time - trigger_time
                 # See if grids are beside eachother and if there is a jump, how long is it:
-                idx=ce_dict['gm'][ce_index]
-                if 1 < idx < 6:
-                    channels=[ce_dict['gch1'][ce_index],ce_dict['gch2'][ce_index],ce_dict['gch3'][ce_index],ce_dict['gch4'][ce_index],ce_dict['gch5'][ce_index]]
-                    diff=channels[idx-1]-ce_dict['gch1'][ce_index]
-                    ce_dict['max_dist'][ce_index] = abs(diff)-idx+1
-                    if abs(diff-idx+1)>1:
-                        ce_dict['flag_unconnected'][ce_index] = 1  
+                # Only do this bor bus 9 (only one we folow)
+                bus = ce_dict['bus'][ce_index]
+                if bus==9:
+                    idx=ce_dict['gm'][ce_index]
+                    if idx > 1:
+                        channels=list(ce_dict['gridch'][ce_index][:])
+                        if -1 in channels:
+                            channels.remove(-1)
+                            diff=max(channels)-min(channels)
+                            ce_dict['max_dist'][ce_index] = (diff-idx)+1
+                            if abs(diff-idx+1)>2:
+                                ce_dict['flag_unconnected'][ce_index] = 1  
+                        if idx > 2:
+                            max_gch=ce_dict['gch'][ce_index]
+                            dist_ch= [abs(x-max_gch) for x in channels]
+                            dist=max(dist_ch)
+                            if dist_ch.count(dist)==1:
+                                ce_dict['gch'][ce_index]=channels[dist_ch.index(max(dist_ch))]
+                            else:
+                                ce_dict['gch'][ce_index]=ce_dict['gch_max'][ce_index]
+                        else:
+                            ce_dict['gch'][ce_index]=ce_dict['gch_max'][ce_index]
+                    else:
+                        ce_dict['gch'][ce_index]=ce_dict['gch_max'][ce_index]
                 # Reset temporary variables, related to data in events
                 previous_bus, bus = -1, -1
                 max_adc_w, max_adc_g = 0, 0
@@ -312,19 +319,31 @@ def extract_clusters(data):
         # Print progress of clustering process
         if stop:
             break
-        if i % 1000000 == 1:
+        if i % (len(data)//10) == 1:
             percentage_finished = int(round((i/len(data))*100))
-            if percentage_finished>0:
+            # Decide how much of the data should be read
+            if percentage_finished>100:
                 stop=True
-            os.system('cls' if os.name == 'nt' else "printf '\033c'")    
-            print('Percentage: %d' % percentage_finished)
-
+            clear_output(wait=True)
+            #print('Percentage: %d' % percentage_finished)
+            print('Loading clusters ...')
+            print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' +  str(percentage_finished) + ' %' )
+    
+    clear_output(wait=True) 
+    print(40*' '+'Finished!')
     # Remove empty elements in clusters and save in DataFrame for easier analysis
     data = None
+    # Take out the 2D arrays for the gridchannels and the adc for each grid
+    ce_dict['gridch'] = ce_dict['gridch'][0:ce_index]
+    ce_dict['gridadc'] = ce_dict['gridadc'][0:ce_index]
+    grid_channels=ce_dict.pop('gridch')
+    grid_adc=ce_dict.pop('gridadc')
+    # Save main data in datframe
     for key in ce_dict:
         ce_dict[key] = ce_dict[key][0:ce_index]
     ce_df = pd.DataFrame(ce_dict)
-    return ce_df
+    # Return dataframe as well as the "D arrays for grid channels and grid adc
+    return ce_df , grid_channels, grid_adc
 
 
 # =============================================================================
@@ -347,7 +366,6 @@ def extract_events(data):
         'ch': Channel
         'adc': Total charge collected by all wires in coincidence
         'time': At what time the event occured
-        'type': grid (0) or wire (1)
 
     Args:
         data (tuple): Tuple containing data, one word per element.
@@ -365,8 +383,7 @@ def extract_events(data):
     e_dict = {'bus': (-1) * np.ones([size], dtype=int),
               'ch': (-1) * np.ones([size], dtype=int),
               'adc': np.zeros([size], dtype=int),
-              'time': (-1) * np.ones([size], dtype=int),
-              'type': (-1) * np.ones([size],dtype=int)}
+              'time': (-1) * np.ones([size], dtype=int)}
     # Declare temporary boolean variables
     is_open, is_data = False, False
     # Declare variable that track index for events
@@ -385,29 +402,31 @@ def extract_events(data):
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
             # Wires in bus 0 have channels between 0->63 and 0 -> 31 in bus 1
-            if 0 <= channel <= 63 & (bus==0 ):#| bus==1):
-                    # Save event data and increase event index and event count, save to a third new bus, bus 2
+            bus_bool= (bus==2 or bus==3)
+            channel_bool=(0 <= channel <= 79)
+            if ( bus_bool and channel_bool ):
+                ch_new=reorder_w_channles(channel)
+                if (ch_new != -1):
                     e_dict['bus'][e_index] = 9
-                    e_dict['type'][e_index] = 1
-                    if bus == 0:
-                        e_dict['ch'][e_index] = channel ^ 1
-                    elif (bus==1 & 0 <= channel <= 31):
+                    # Save event data and increase event index and event count, save to a third new bus, bus 9
+                    if (bus == 3) and (0 <= ch_new <= 31):
+                        e_dict['ch'][e_index] = ch_new ^ 1
+                    elif (bus==2) :
                         # Save to new channels so all wires are beside eachother in the same bus
-                        e_dict['ch'][e_index] = (64+channel) ^ 1
+                        e_dict['ch'][e_index] = (32+ch_new) ^ 1
                     e_dict['adc'][e_index] = adc
                     e_index += 1
                     e_count += 1
-            # Grids have channels between 64->100 in bus 0 (bus 1 has no grids assigned to it)
-            elif bus==0 & (64 <= channel <= 100):
-                # Save event data and increase event index and event count
-                e_dict['type'][e_index] = 0
-                e_dict['bus'][e_index] = 9
-                e_dict['ch'][e_index] = channel + 32 # +32 to make up for the fact that 32 wires start in a seperate bus
-                e_dict['adc'][e_index] = adc
-                e_index += 1
-                e_count += 1
-            else:
-                pass
+            # Grids have channels between 80 and 119 (bus 3 has no grids atached to it)
+            elif (bus==2) and (80 <= channel <= 119):
+                ch_new=reorder_gr_channles(channel)
+                if ch_new != -1:  
+                    # Save event data and increase event index and event count
+                    e_dict['bus'][e_index] = 9
+                    e_dict['ch'][e_index] = ch_new 
+                    e_dict['adc'][e_index] = adc
+                    e_index += 1
+                    e_count += 1
         elif ((word & DATA_MASK) == DATA_EXTS) & is_open:
             extended_time_stamp = (word & EXTS_MASK) << EXTS_SHIFT
             is_exts = True
@@ -422,10 +441,17 @@ def extract_events(data):
             e_count = 0
 
         # Print progress of clustering process
-        if i % 1000000 == 1:
+        if i % (len(data)//10) == 1:
             percentage_finished = int(round((i/len(data))*100))
-            print('Percentage: %d' % percentage_finished)
-
+            # Decide how much of the data should be read
+            if percentage_finished>100:
+                stop=True
+            clear_output(wait=True)
+            #print('Percentage: %d' % percentage_finished)
+            print('Loading events ...')
+            print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' + str(percentage_finished) + ' %' )   
+    clear_output(wait=True)
+    print(40*' '+'Finished!')    
     # Remove empty elements in events and save in DataFrame for easier analysis
     for key in e_dict:
         e_dict[key] = e_dict[key][0:e_index+1]
@@ -455,3 +481,39 @@ def mkdir_p(my_path):
         if exc.errno == EEXIST and path.isdir(my_path):
             pass
         else: raise
+
+def reorder_w_channles(ch):
+    """
+    Returns the channel we want
+
+    Args:
+        ch (int): gives a channel some of which will be empty (should not be called but...)
+
+    Yields:
+        ch_new (int): channel we want
+    """
+    list_emty_wch=[0,1,18,19,20,21,38,39,40,41,58,59,60,61,78,79]
+    if ch in list_emty_wch:
+        return -1
+    else:
+        row=ch // 20
+        level= ch % 20 -2  # -2 since we skipp 2 of the first pinns (and 2 of the last)
+        ch_new = row*16+level
+        return ch_new
+def reorder_gr_channles(ch):
+    """
+    Returns the channel we want
+
+    Args:
+        ch (int): gives a channel some of which will be empty (should not be called but...)
+
+    Yields:
+        ch_new (int): channel we want
+    """
+    list_emty_gr=[80,118,119]
+    if ch in list_emty_gr:
+        return -1
+    else:
+        ch_new=ch+15
+ 
+        return ch_new

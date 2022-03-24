@@ -236,50 +236,41 @@ def extract_clusters(data):
             previous_bus = bus
             max_adc_w, max_adc_g = 0, 0
             ce_index += 1
-            # Save Bus data for cluster
-            #ce_dict['bus'][ce_index] = bus
         elif ((word & DATA_MASK) == DATA_EVENT) & is_open:
             # Extract Channel and ADC
             channel = ((word & CHANNEL_MASK) >> CHANNEL_SHIFT)
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
-            # Wires in bus 0 have channels between 0->63 and bus 1 have chanels betwwen 0 -> 31
-            #if (0 <= channel <= 63):
-            if (bus==0) &(0<=channel <=79):
-                ce_dict['bus'][ce_index] = 9
-                if bus == 0:
-                    ce_dict['wch'][ce_index] = channel ^ 1
-                elif bus==1 & (0 <= channel <= 31):
-                    # Save to new channels so all wires are beside eachother in the same bus
-                    ce_dict['wch'][ce_index] = (64+channel) ^ 1
+            # Wires in bus 0 and 1 have channels between 0->79
+            if (0<=channel <=79):
+                ce_dict['bus'][ce_index] = bus
+                ce_dict['wch'][ce_index] = channel ^ 1
                 # Save cluster data
                 ce_dict['wadc'][ce_index] += adc
                 ce_dict['wm'][ce_index] += 1
                 # Use wire with largest collected charge as hit position
                 if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, channel ^ 1
-            # Grids in bus 0 have channels between 64->100
-            #elif bus==0 & (64 <= channel <= 100):
-            elif bus==0 & (80 <= channel <= 119):
-                ce_dict['bus'][ce_index] = 9
+            elif  (80 <= channel <= 119):
+                ce_dict['bus'][ce_index] = bus
                 ce_dict['gm'][ce_index] += 1
                 if ce_dict['gm'][ce_index]==1:
-                    ce_dict['gch1'][ce_index]=channel+32
+                    ce_dict['gch1'][ce_index]=channel
                     ce_dict['gadc1'][ce_index]=adc
                 elif ce_dict['gm'][ce_index]==2:
-                    ce_dict['gch2'][ce_index]=channel+32
+                    ce_dict['gch2'][ce_index]=channel
                     ce_dict['gadc2'][ce_index]=adc
                 elif ce_dict['gm'][ce_index]==3:
-                    ce_dict['gch3'][ce_index]=channel+32
+                    ce_dict['gch3'][ce_index]=channel
                     ce_dict['gadc3'][ce_index]=adc
                 elif ce_dict['gm'][ce_index]==4:
-                    ce_dict['gch4'][ce_index]=channel+32
+                    ce_dict['gch4'][ce_index]=channel
                     ce_dict['gadc4'][ce_index]=adc
                 elif ce_dict['gm'][ce_index]==5:
-                    ce_dict['gch5'][ce_index]=channel+32
+                    ce_dict['gch5'][ce_index]=channel
                     ce_dict['gadc5'][ce_index]=adc
                 else:
                     pass
-                ce_dict['gridch'][ce_index] += "," + str(channel+32)
+                ce_dict['gridch'][ce_index] += "," + str(channel)
                 ce_dict['gridadc'][ce_index] += "," + str(adc)
                 ce_dict['gadc'][ce_index] += adc
                 # Use grid with largest collected charge as hit position
@@ -316,11 +307,17 @@ def extract_clusters(data):
         # Print progress of clustering process
         if stop:
             break
-        if i % 1000000 == 1:
+        if i % (len(data)//10) == 1:
             percentage_finished = int(round((i/len(data))*100))
+            # Decide how much of the data should be read
             if percentage_finished>100:
                 stop=True
-            print('Percentage: %d' % percentage_finished)
+            clear_output(wait=True)
+            #print('Percentage: %d' % percentage_finished)
+            print('Loading events ...')
+            print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' + str(percentage_finished) + ' %' )   
+    clear_output(wait=True)
+    print(40*' '+'Finished!')   
 
     # Remove empty elements in clusters and save in DataFrame for easier analysis
     data = None
@@ -368,8 +365,7 @@ def extract_events(data):
     e_dict = {'bus': (-1) * np.ones([size], dtype=int),
               'ch': (-1) * np.ones([size], dtype=int),
               'adc': np.zeros([size], dtype=int),
-              'time': (-1) * np.ones([size], dtype=int),
-              'type': (-1) * np.ones([size],dtype=int)}
+              'time': (-1) * np.ones([size], dtype=int)}
     # Declare temporary boolean variables
     is_open, is_data = False, False
     # Declare variable that track index for events
@@ -387,25 +383,19 @@ def extract_events(data):
             channel = ((word & CHANNEL_MASK) >> CHANNEL_SHIFT)
             adc = (word & ADC_MASK)
             bus = (word & BUS_MASK) >> BUS_SHIFT
-            # Wires in bus 0 have channels between 0->63 and 0 -> 31 in bus 1
-            if 0 <= channel <= 63 & (bus==0 ):#| bus==1):
-                    # Save event data and increase event index and event count, save to a third new bus, bus 2
-                    e_dict['bus'][e_index] = 9
-                    e_dict['type'][e_index] = 1
-                    if bus == 0:
-                        e_dict['ch'][e_index] = channel ^ 1
-                    elif (bus==1 & 0 <= channel <= 31):
-                        # Save to new channels so all wires are beside eachother in the same bus
-                        e_dict['ch'][e_index] = (64+channel) ^ 1
-                    e_dict['adc'][e_index] = adc
-                    e_index += 1
-                    e_count += 1
-            # Grids have channels between 64->100 in bus 0 (bus 1 has no grids assigned to it)
-            elif bus==0 & (64 <= channel <= 100):
+                # Wires have channels between 0->79
+            if 0 <= channel <= 79:
                 # Save event data and increase event index and event count
-                e_dict['type'][e_index] = 0
-                e_dict['bus'][e_index] = 9
-                e_dict['ch'][e_index] = channel + 32 # +32 to make up for the fact that 32 wires start in a seperate bus
+                e_dict['bus'][e_index] = bus
+                e_dict['ch'][e_index] = channel ^ 1
+                e_dict['adc'][e_index] = adc
+                e_index += 1
+                e_count += 1
+            # Grids have channels between 80->119
+            elif (80 <= channel <= 119):
+                # Save event data and increase event index and event count
+                e_dict['bus'][e_index] = bus
+                e_dict['ch'][e_index] = channel
                 e_dict['adc'][e_index] = adc
                 e_index += 1
                 e_count += 1
@@ -423,11 +413,19 @@ def extract_events(data):
             # Reset temporary boolean variables, related to word-headers
             is_open, is_trigger, is_data = False, False, False
             e_count = 0
-
+        if stop:
+            break
         # Print progress of clustering process
-        if i % 1000000 == 1:
+        if i % (len(data)//10) == 1:
             percentage_finished = int(round((i/len(data))*100))
-            print('Percentage: %d' % percentage_finished)
+            # Decide how much of the data should be read
+            if percentage_finished>100:
+                stop=True
+            clear_output(wait=True)
+            print('Loading events ...')
+            print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' + str(percentage_finished) + ' %' )   
+    clear_output(wait=True)
+    print(40*' '+'Finished!')    
 
     # Remove empty elements in events and save in DataFrame for easier analysis
     for key in e_dict:
