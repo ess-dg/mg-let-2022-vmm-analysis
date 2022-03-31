@@ -200,8 +200,7 @@ def extract_clusters(data):
                'wm': np.zeros([size], dtype=int),
                'gm': np.zeros([size], dtype=int),
                'flag_unconnected': (-1) * np.ones([size], dtype=int),
-               'max_dist': np.zeros([size], dtype=int),
-               'bus_sub': (-1) * np.ones([size], dtype=int)}
+               'max_dist': np.zeros([size], dtype=int)}
     np.full([size], "", dtype=np.object)
                 
     # Declare temporary boolean variables, related to words
@@ -247,14 +246,12 @@ def extract_clusters(data):
                         ce_dict['bus'][ce_index] = 9
                         ce_dict['wadc'][ce_index] += adc
                         ce_dict['wm'][ce_index] += 1
-                        ce_dict['bus_sub'][ce_index]=bus
                         if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, ch_new ^ 1
                     elif (bus==2):
                         # Save to new channels so all wires are beside eachother in the same bus
                         ce_dict['bus'][ce_index] = 9
                         ce_dict['wadc'][ce_index] += adc
                         ce_dict['wm'][ce_index] += 1
-                        ce_dict['bus_sub'][ce_index]=bus
                         if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, (32+ch_new) ^ 1
                     else:
                         pass

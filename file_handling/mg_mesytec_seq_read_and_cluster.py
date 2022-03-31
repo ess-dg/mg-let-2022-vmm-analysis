@@ -13,6 +13,7 @@ import zipfile
 import re
 import numpy as np
 import pandas as pd
+from IPython.display import clear_output
 
 
 # =============================================================================
@@ -189,34 +190,18 @@ def extract_clusters(data):
     ce_dict = {'bus': (-1) * np.ones([size], dtype=int),
                'time': (-1) * np.ones([size], dtype=int),
                'tof': (-1) * np.ones([size], dtype=int),
-               'gridch': np.ones([size], dtype=str),
-               'gridadc': np.ones([size], dtype=str),
                'wch': (-1) * np.ones([size], dtype=int),
-               'gch1': (-1) * np.ones([size], dtype=int),
-               'gch2': (-1) * np.ones([size], dtype=int),
-               'gch3': (-1) * np.ones([size], dtype=int),
-               'gch4': (-1) * np.ones([size], dtype=int),
-               'gch5': (-1) * np.ones([size], dtype=int),
-               'gadc1': np.zeros([size], dtype=int),
-               'gadc2': np.zeros([size], dtype=int),
-               'gadc3': np.zeros([size], dtype=int),
-               'gadc4': np.zeros([size], dtype=int),
-               'gadc5': np.zeros([size], dtype=int),
                'gch': (-1) * np.ones([size], dtype=int),
                'wadc': np.zeros([size], dtype=int),
                'gadc': np.zeros([size], dtype=int),
                'wm': np.zeros([size], dtype=int),
-               'gm': np.zeros([size], dtype=int),
-               'flag_unconnected': (-1) * np.ones([size], dtype=int),
-               'max_dist': np.zeros([size], dtype=int)}
+               'gm': np.zeros([size], dtype=int)}
                 
     # Declare temporary boolean variables, related to words
     is_open, is_trigger, is_data, is_exts = False, False, False, False
     # Declare temporary variables, related to events
     previous_bus, bus = -1, -1
     max_adc_w, max_adc_g = 0, 0
-    here1=False
-    here2=False
     stop=False
     # Declare variables that track time and index for events and clusters
     time, trigger_time, ce_index = 0, 0, -1
@@ -224,8 +209,6 @@ def extract_clusters(data):
     for i, word in enumerate(data):
         # Five possibilities: Header, DataBusStart, DataEvent, DataExTs or EoE.
         if (word & TYPE_MASK) == HEADER:
-            gr_ch =''
-            gr_adc= ''
             is_open = True
             is_trigger = (word & TRIGGER_MASK) == TRIGGER
         elif ((word & DATA_MASK) == DATA_BUS_START) & is_open:
@@ -253,25 +236,6 @@ def extract_clusters(data):
             elif  (80 <= channel <= 119):
                 ce_dict['bus'][ce_index] = bus
                 ce_dict['gm'][ce_index] += 1
-                if ce_dict['gm'][ce_index]==1:
-                    ce_dict['gch1'][ce_index]=channel
-                    ce_dict['gadc1'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==2:
-                    ce_dict['gch2'][ce_index]=channel
-                    ce_dict['gadc2'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==3:
-                    ce_dict['gch3'][ce_index]=channel
-                    ce_dict['gadc3'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==4:
-                    ce_dict['gch4'][ce_index]=channel
-                    ce_dict['gadc4'][ce_index]=adc
-                elif ce_dict['gm'][ce_index]==5:
-                    ce_dict['gch5'][ce_index]=channel
-                    ce_dict['gadc5'][ce_index]=adc
-                else:
-                    pass
-                ce_dict['gridch'][ce_index] += "," + str(channel)
-                ce_dict['gridadc'][ce_index] += "," + str(adc)
                 ce_dict['gadc'][ce_index] += adc
                 # Use grid with largest collected charge as hit position
                 if adc > max_adc_g: max_adc_g, ce_dict['gch'][ce_index] = adc, channel
@@ -290,14 +254,6 @@ def extract_clusters(data):
             if is_data:
                 ce_dict['time'][ce_index] = time
                 ce_dict['tof'][ce_index] = time - trigger_time
-                # See if grids are beside eachother and if there is a jump, how long is it:
-                idx=ce_dict['gm'][ce_index]
-                if 1 < idx < 6:
-                    channels=[ce_dict['gch1'][ce_index],ce_dict['gch2'][ce_index],ce_dict['gch3'][ce_index],ce_dict['gch4'][ce_index],ce_dict['gch5'][ce_index]]
-                    diff=channels[idx-1]-ce_dict['gch1'][ce_index]
-                    ce_dict['max_dist'][ce_index] = abs(diff)-idx+1
-                    if abs(diff-idx+1)>1:
-                        ce_dict['flag_unconnected'][ce_index] = 1  
                 # Reset temporary variables, related to data in events
                 previous_bus, bus = -1, -1
                 max_adc_w, max_adc_g = 0, 0
@@ -317,7 +273,7 @@ def extract_clusters(data):
             print('Loading events ...')
             print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' + str(percentage_finished) + ' %' )   
     clear_output(wait=True)
-    print(40*' '+'Finished!')   
+    print(40*' '+'Finished reading clusters!')   
 
     # Remove empty elements in clusters and save in DataFrame for easier analysis
     data = None
@@ -371,6 +327,7 @@ def extract_events(data):
     # Declare variable that track index for events
     e_index = 0
     e_count = 0
+    stop=False
     # Iterate through data
     for i, word in enumerate(data):
         # Five possibilities: Header, DataBusStart, DataEvent, DataExTs or EoE.
@@ -425,7 +382,7 @@ def extract_events(data):
             print('Loading events ...')
             print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' + str(percentage_finished) + ' %' )   
     clear_output(wait=True)
-    print(40*' '+'Finished!')    
+    print(40*' '+'Finished reading events!')    
 
     # Remove empty elements in events and save in DataFrame for easier analysis
     for key in e_dict:

@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 import plotting.helper_functions as plotting_hf
-import file_handling.mg_mesytec_manage as mg_manage
+import file_handling.mg_mesytec_manage_seq as mg_manage
 
 # ==============================================================================
 #                                   PHS (1D)
@@ -92,7 +92,7 @@ def phs_2d_plot(events, bus, vmin, vmax):
     plt.xlabel('Channel')
     plt.ylabel('Charge (ADC channels)')
     plt.title('Bus: %d' % bus)
-    bins = [120, 120]
+    bins = [120, 4095]
     if events.shape[0] > 1:
         plt.hist2d(events.ch, events.adc, bins=bins,
                    norm=LogNorm(vmin=vmin, vmax=vmax),
@@ -160,7 +160,7 @@ def clusters_2d_plot(clusters, title, vmin, vmax, duration):
     """
 
     plt.hist2d(clusters.wch, clusters.gch, bins=[80, 40],
-               range=[[-0.5, 95.5], [95.5, 132.5]],
+               range=[[-0.5, 79.5], [79.5, 119.5]],
                norm=LogNorm(vmin=vmin, vmax=vmax),
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wch)))
@@ -222,8 +222,8 @@ def multiplicity_plot(clusters, bus, duration, vmin=None, vmax=None):
     plt.yticks(locs_y, ticks_y)
     plt.xlabel("Wire multiplicity")
     plt.ylabel("Grid multiplicity")
-    cbar = plt.colorbar()
-    cbar.set_label('Counts/s')
+    #cbar = plt.colorbar()
+    #cbar.set_label('Counts/s')
     plt.title('Bus: %d' % bus)
     #plt.tight_layout()
 
@@ -287,7 +287,7 @@ def grid_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.gch, bins=40, zorder=4, range=[96.5, 132.5],
+    plt.hist(clusters.gch, bins=40, zorder=4, range=[79.5, 119.5],
              weights=(1/duration)*np.ones(len(clusters.gch)),
              histtype='step', color='black')
 
@@ -317,7 +317,7 @@ def wire_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.wch, bins=80, zorder=4, range=[-0.5, 95.5],
+    plt.hist(clusters.wch, bins=80, zorder=4, range=[-0.5, 79.5],
              weights=(1/duration)*np.ones(len(clusters.wch)),
              histtype='step', color='black')
 
@@ -326,7 +326,7 @@ def wire_histogram(clusters, bus, duration):
 #                      PLOT ALL BASIC PLOTS FOR ONE BUS
 # ==============================================================================
 
-def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,
+def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,save=False,
                       plot_title=''):
     """
     Function to plot all basic plots for SEQUOIA detector, for a single bus,
@@ -361,6 +361,8 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,
     """
 
     plotting_hf.set_thick_labels(15)
+    #os.mkdir('../output/%s_%d' % (run,bus))
+    output_path = '../output/%s_%d/%s_summary_bus_%d' % (run,bus,run, bus)
 
     # Filter clusters
     clusters = mg_manage.filter_data(clusters_unfiltered, df_filter)
@@ -374,8 +376,12 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,
     events_bus = events[events.bus == bus]
     clusters_bus = clusters[clusters.bus == bus]
     clusters_uf_bus = clusters_unfiltered[clusters_unfiltered.bus == bus]
+    
 
     fig = plt.figure()
+    
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
     plt.suptitle(plot_title, fontsize=15, fontweight='bold', y=1.00005)
     # PHS - 2D
     plt.subplot(4, 2, 1)
@@ -420,10 +426,11 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,
     plt.title('Rate vs time')
 
     # Multiplicity
-    plt.subplot(4, 2, 3)
-    if clusters_bus.shape[0] > 1:
-        multiplicity_plot(clusters_bus, bus, duration)
-    plt.title('Event multiplicity')
+    if clusters_bus.shape[0] > 10:
+        plt.subplot(4, 2, 3)
+        multiplicity_plot(clusters_bus, bus, duration,vmin,vmax)
+        plt.title('Event multiplicity')
+    
 
     # Coincidences - PHS
     plt.subplot(4, 2, 4)
@@ -452,13 +459,184 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,
     fig.set_figwidth(10)
     fig.set_figheight(16)
     plt.tight_layout()
-    output_path = '../output/%s_summary_bus_%d.png' % (run, bus)
-    fig.savefig(output_path, bbox_inches='tight')
+    if save:
+        fig.savefig(output_path+'.png', bbox_inches='tight')
+        mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,save=True,
+                      plot_title='')
+        
+# ==============================================================================
+#                      Save all basic plots to new foalder
+# ==============================================================================
+
+def mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,save=False,
+                      plot_title=''):
+    """
+    Function to plot all basic plots for SEQUOIA detector, for a single bus,
+    such as PHS, Coincidences and rate.
+
+    Ordering of plotting is:
+
+    PHS 2D             - NOT FILTERED
+    PHS 1D             - FILTERED AND NOT FILTERED
+    MULTIPLICITY       - FILTERED
+    PHS CORRELATION    - FILTERED
+    COINCIDENCES 2D    - FILTERED
+    RATE               - FILTERED
+    UNIFORMITY (WIRES) - FILTERED
+    UNIFORMITY (GRIDS) - FILTERED
+
+    Note that all plots are filtered except the PHS 2D.
+
+    Args:
+        run (str): File run
+        bus (int): Bus to plot
+        clusters_unfiltered (DataFrame): Unfiltered clusteres
+        events (DataFrame): Individual events
+        df_filter (dict): Dictionary specifying the filter which will be used
+                          on the clustered data
+        area (float): Area in m^2 of the active detector surface
+        plot_title (str): Title of PLOT
+
+    Yields:
+        Plots the basic analysis
+
+    """
+
+    plotting_hf.set_thick_labels(15)
+    output_path = '../output/%s_%d/%s_summary_bus_%d' % (run,bus,run, bus)
+
+    # Filter clusters
+    clusters = mg_manage.filter_data(clusters_unfiltered, df_filter)
+
+    # Declare parameters
+    duration_unf = ((clusters_unfiltered.time.values[-1]
+                    - clusters_unfiltered.time.values[0]) * 62.5e-9)
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+
+    # Filter data from only one bus
+    events_bus = events[events.bus == bus]
+    clusters_bus = clusters[clusters.bus == bus]
+    clusters_uf_bus = clusters_unfiltered[clusters_unfiltered.bus == bus]
+
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    # PHS - 2D
+    vmin = 1
+    vmax = events.shape[0] // 1000 + 100
+    if events_bus.shape[0] > 0:
+        phs_2d_plot(events_bus, bus, vmin, vmax)
+    plt.title('PHS vs Channel')
+    fig.savefig(output_path+'_PHS_vs_chan.png', bbox_inches='tight')
+
+    # PHS log - 1D
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    bins_phs_1d = 300
+    phs_1d_plot(clusters_bus, clusters_uf_bus, bins_phs_1d, bus, duration)
+    plt.yscale('log')
+    plt.title('PHS')
+    fig.savefig(output_path+'_PHS_log.png', bbox_inches='tight')
+    
+    # PHS lin - 1D
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    bins_phs_1d = 300
+    phs_1d_plot(clusters_bus, clusters_uf_bus, bins_phs_1d, bus, duration)
+    plt.title('PHS')
+    fig.savefig(output_path+'_PHS_lin.png', bbox_inches='tight')
+
+    # Coincidences - 2D
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    if clusters.shape[0] != 0:
+        vmin = (1 * 1/duration)
+        vmax = (clusters.shape[0] // 450 + 5) * 1/duration
+    else:
+        duration = 1
+        vmin = 1
+        vmax = 1
+
+    number_events = clusters_bus.shape[0]
+    number_events_error = np.sqrt(clusters_bus.shape[0])
+    events_per_s = number_events/duration
+    events_per_s_m2 = events_per_s/area
+    events_per_s_m2_error = number_events_error/(duration*area)
+    title = ('Coincidences\n(%d events, %.3f±%.3f events/s/m$^2$)' % (number_events,
+                                                                      events_per_s_m2,
+                                                                      events_per_s_m2_error))
+    if number_events > 1:
+        clusters_2d_plot(clusters_bus, title, vmin, vmax, duration)
+
+    fig.savefig(output_path+'_coince_num.png', bbox_inches='tight')
+
+    # Rate
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    number_bins = 40
+    rate_plot(clusters_bus, number_bins, bus)
+    plt.title('Rate vs time')
+    plt.yscale('log')
+    fig.savefig(output_path+'_Rate_vs_time_log.png', bbox_inches='tight')
+    
+    # Rate Lin
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    number_bins = 40
+    rate_plot(clusters_bus, number_bins, bus)
+    plt.title('Rate vs time')
+    fig.savefig(output_path+'_Rate_vs_time_lin..png', bbox_inches='tight')
+    
+    # Multiplicity
+    if clusters_bus.shape[0] > 1:
+        fig = plt.figure()
+        plt.rcParams['font.family'] = 'DeJavu Serif'
+        plt.rcParams['font.serif'] = ['Computer Modern']
+        multiplicity_plot(clusters_bus, bus, duration,vmin,vmax)
+        plt.title('Event multiplicity')
+        fig.savefig(output_path+'_Clu_mul.png', bbox_inches='tight')
+
+    # Coincidences - PHS
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    if clusters.shape[0] != 0:
+        vmin = 1/duration
+        vmax = (clusters.shape[0] // 450 + 1000) / duration
+    else:
+        duration = 1
+        vmin = 1
+        vmax = 1
+    if clusters_bus.shape[0] > 1:
+        clusters_phs_plot(clusters_bus, bus, duration, vmin, vmax)
+    plt.title('Charge coincidences')
+    fig.savefig(output_path+'_coince_charge.png', bbox_inches='tight')
+
+    # Uniformity - grids
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    grid_histogram(clusters_bus, bus, duration)
+    plt.title('Uniformity - grids')
+    fig.savefig(output_path+'_Uni_gr.png', bbox_inches='tight')
+
+    # Uniformity - wires
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
+    wire_histogram(clusters_bus, bus, duration)
+    plt.title('Uniformity - wires')
+    fig.savefig(output_path+'_Uni_wi.png', bbox_inches='tight')
 # ==============================================================================
 #                  PLOT ALL BASIC PLOTS FOR TWO OR MORE BUSSES 
 # ==============================================================================
 
-def mg_plot_grid_distrobution(clusters_unfiltered,gm,num_to_plot,
+def mg_plot_grid_distrobution(clusters_unfiltered,gm=5,num_to_plot=1,
                       plot_title=''):
     """
     Function to plot the charge distrobution for the detection with the most grids connected to it.
