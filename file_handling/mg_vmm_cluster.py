@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pcapng as pg
 
-def cluster_vmm_data(events_df):
+def cluster_vmm_data(events_df, time_window=2e-6):
     """ Clusters data obtained with the VMM readout and stores the obtained
         clusters in a dataframe.
 
@@ -22,10 +22,9 @@ def cluster_vmm_data(events_df):
 
     """        
     # Declare parameters
-    est_size = round(len(events_df)/2) + 1 # Add one extra element for dummy cluster
+    est_size = round(len(events_df)) + 1 # Add one extra element for dummy cluster
     column_labels = events_df.columns.values.tolist()
     events_np = events_df.to_numpy()
-    time_window = 2e-6 # in seconds
     LO_to_s = 1 / (88.0525 * 1e6)
     
     # Pre-allocated space for clusters
@@ -33,14 +32,16 @@ def cluster_vmm_data(events_df):
                      'gch_max': (-1) * np.ones([est_size], dtype=int),
                      'gch_cog': np.zeros([est_size], dtype=float),
                      'wadc': np.zeros([est_size], dtype=int),
-                     'gadc_sum': np.zeros([est_size], dtype=int),
+                     'gadc': np.zeros([est_size], dtype=int),
                      'wm': np.zeros([est_size], dtype=int),
                      'gm': np.zeros([est_size], dtype=int),
-                     'time': (-1) * np.ones([est_size], dtype=int),
+                     'time': (-1) * np.ones([est_size], dtype=float),
                      'tof': (-1) * np.ones([est_size], dtype=float),
                      'fen': (-1) * np.ones([est_size], dtype=int),
+                     'ring': (-1) * np.ones([est_size], dtype=int),
                      'gchs_adjacent': np.zeros([est_size], dtype=int),
-                     'same_fen': np.zeros([est_size], dtype=int)}
+                     'same_fen': np.zeros([est_size], dtype=int),
+                     'same_ring': np.zeros([est_size], dtype=int)}
     
     # Get indices of data columns for events
     idx_PulseTimeHI = column_labels.index('PulseTimeHI')
@@ -54,12 +55,15 @@ def cluster_vmm_data(events_df):
     idx_channel = column_labels.index('channel')
     idx_adc = column_labels.index('adc')
     idx_fen = column_labels.index('fen')
+    idx_ring = column_labels.index('ring')
     
     # Iterate through data
     idx_cluster = 0
     max_wadc, max_gadc, grids_in_cluster = 0, 0, 0
     same_fen = True
+    same_ring = True
     cluster_fen = -1
+    cluster_ring = -1
     gch_min, gch_max = np.inf, -np.inf
     start_time = -np.inf
     for event in events_np:
@@ -69,8 +73,11 @@ def cluster_vmm_data(events_df):
         vmm = event[idx_vmm]
         channel = event[idx_channel]
         fen = event[idx_fen]
+        ring = event[idx_ring]
+        hybrid = vmm // 2
         if fen != cluster_fen: same_fen = False
-        is_wire = vmm < 2
+        if ring//2 != cluster_ring//2: same_ring = False
+        is_wire = hybrid == 1
         # Check if event is in same cluster
         if 0 <= (time - start_time) <= time_window:
             # Continue on current cluster
@@ -80,11 +87,11 @@ def cluster_vmm_data(events_df):
                 clusters_dict['wm'][idx_cluster] += 1
                 if adc > max_wadc:
                     max_wadc = adc
-                    wch = vmm * 64 + channel - 32
+                    wch = ((vmm % 2) * 64 + channel - 32) ^ 1
                     clusters_dict['wch'][idx_cluster] = wch
             else: 
                 # Grids
-                clusters_dict['gadc_sum'][idx_cluster] += adc
+                clusters_dict['gadc'][idx_cluster] += adc
                 clusters_dict['gm'][idx_cluster] += 1
                 gch = channel
                 adc_gch = adc * gch
@@ -101,7 +108,9 @@ def cluster_vmm_data(events_df):
                 clusters_dict['gchs_adjacent'][idx_cluster] = 1
             if same_fen:
                 clusters_dict['same_fen'][idx_cluster] = 1
-            grid_charge_total = clusters_dict['gadc_sum'][idx_cluster]
+            if same_ring:
+                clusters_dict['same_ring'][idx_cluster] = 1
+            grid_charge_total = clusters_dict['gadc'][idx_cluster]
             if grid_charge_total > 0:
                 clusters_dict['gch_cog'][idx_cluster] *= (1/grid_charge_total)
             # Start new cluster
@@ -111,17 +120,18 @@ def cluster_vmm_data(events_df):
             max_wadc, max_gadc = 0, 0
             start_time = time
             cluster_fen, same_fen = event[idx_fen], True
+            cluster_ring, same_ring = event[idx_ring], True
             # Insert wadc, gadc, gch and wch
             if is_wire:
                 # Wires
                 clusters_dict['wadc'][idx_cluster] += adc
                 clusters_dict['wm'][idx_cluster] += 1
                 max_wadc = adc
-                wch = vmm * 64 + channel - 32
+                wch = ((vmm % 2) * 64 + channel - 32) ^ 1
                 clusters_dict['wch'][idx_cluster] = wch
             else:
                 # Grids
-                clusters_dict['gadc_sum'][idx_cluster] += adc
+                clusters_dict['gadc'][idx_cluster] += adc
                 clusters_dict['gm'][idx_cluster] += 1
                 max_gadc = adc
                 gch = channel
@@ -129,8 +139,9 @@ def cluster_vmm_data(events_df):
                 if channel > gch_max: gch_max = channel
                 if channel < gch_min: gch_min = channel
                 grids_in_cluster += 1
-            # Insert fen
+            # Insert fen and ring
             clusters_dict['fen'][idx_cluster] = cluster_fen
+            clusters_dict['ring'][idx_cluster] = cluster_ring
             # Insert tof
             PrevPulseTime = event[idx_PrevPulseTimeHI] + event[idx_PrevPulseTimeLO] * LO_to_s
             PulseTime = event[idx_PulseTimeHI] + event[idx_PulseTimeLO] * LO_to_s
