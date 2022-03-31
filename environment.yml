@@ -7,7 +7,7 @@ dependencies:
   - ipython=7.22.0
   - plotly
   - pandas
-  - python-pcapng
+  - pcapng
   - ipywidgets
   - jupyterlab
   - ipympl
