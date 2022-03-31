@@ -22,7 +22,7 @@ def cluster_vmm_data(events_df, time_window=2e-6):
 
     """        
     # Declare parameters
-    est_size = round(len(events_df)/2) + 1 # Add one extra element for dummy cluster
+    est_size = round(len(events_df)) + 1 # Add one extra element for dummy cluster
     column_labels = events_df.columns.values.tolist()
     events_np = events_df.to_numpy()
     LO_to_s = 1 / (88.0525 * 1e6)
@@ -32,7 +32,7 @@ def cluster_vmm_data(events_df, time_window=2e-6):
                      'gch_max': (-1) * np.ones([est_size], dtype=int),
                      'gch_cog': np.zeros([est_size], dtype=float),
                      'wadc': np.zeros([est_size], dtype=int),
-                     'gadc_sum': np.zeros([est_size], dtype=int),
+                     'gadc': np.zeros([est_size], dtype=int),
                      'wm': np.zeros([est_size], dtype=int),
                      'gm': np.zeros([est_size], dtype=int),
                      'time': (-1) * np.ones([est_size], dtype=float),
@@ -91,7 +91,7 @@ def cluster_vmm_data(events_df, time_window=2e-6):
                     clusters_dict['wch'][idx_cluster] = wch
             else: 
                 # Grids
-                clusters_dict['gadc_sum'][idx_cluster] += adc
+                clusters_dict['gadc'][idx_cluster] += adc
                 clusters_dict['gm'][idx_cluster] += 1
                 gch = channel
                 adc_gch = adc * gch
@@ -110,7 +110,7 @@ def cluster_vmm_data(events_df, time_window=2e-6):
                 clusters_dict['same_fen'][idx_cluster] = 1
             if same_ring:
                 clusters_dict['same_ring'][idx_cluster] = 1
-            grid_charge_total = clusters_dict['gadc_sum'][idx_cluster]
+            grid_charge_total = clusters_dict['gadc'][idx_cluster]
             if grid_charge_total > 0:
                 clusters_dict['gch_cog'][idx_cluster] *= (1/grid_charge_total)
             # Start new cluster
@@ -131,7 +131,7 @@ def cluster_vmm_data(events_df, time_window=2e-6):
                 clusters_dict['wch'][idx_cluster] = wch
             else:
                 # Grids
-                clusters_dict['gadc_sum'][idx_cluster] += adc
+                clusters_dict['gadc'][idx_cluster] += adc
                 clusters_dict['gm'][idx_cluster] += 1
                 max_gadc = adc
                 gch = channel
