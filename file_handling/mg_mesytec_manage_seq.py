@@ -7,8 +7,7 @@ manage.py: Contains functions to manage mesytec Multi-Grid data
 import numpy as np
 import pandas as pd
 
-import file_handling.mg_mesytec_ref_read_and_cluster as mg_read
-from IPython.display import clear_output
+import file_handling.mg_mesytec_seq_read_and_cluster as mg_read
 
 # ==============================================================================
 #                                  FILTER DATA
@@ -266,7 +265,7 @@ def reorder_channels_events(data, num_w_in_row=16, bus1=3, rows_w1=2, num_gr1=0,
         df (DataFrame): Data
     """
     pd.options.mode.chained_assignment = None  # default='warn'
-    print('Reordering clusterchannels')
+    print('Filtering events')
     list_emty_wch=[0,1,18,19,20,21,38,39,40,41,58,59,60,61,78,79,80]
     data_bus1_unfiltered=data[(data.bus==bus1)]
     data_bus2_unfiltered=data[(data.bus==bus2)]
@@ -304,68 +303,3 @@ def reorder_channels_events(data, num_w_in_row=16, bus1=3, rows_w1=2, num_gr1=0,
     data = None
     return data_ordered
     
-
-def merge_events_by_time(data, time_s):
-    """
-    Merge datapoints close to echother.
-    
-    Args:
-        data = Dataframe data belonging to the same bus (named)
-        time_diff = time difference between 2 clusters to be considered to be the same
-
-
-    Returns:
-        df (DataFrame): Data
-    """
-    tdc_to_s= 62.5e-9
-    pd.options.mode.chained_assignment = None  # default='warn'
-    data_filt=data
-    time_diff=int(time_s/tdc_to_s)
-    print(time_diff)
-    #data_filt=data_filt[data_filt.gm>0]
-    for ind in range(len(data_filt)):
-        if ind>0:
-            diff_old=abs(data_filt.iloc[ind].time - data_filt.iloc[ind-1].time)
-            if (diff_old<time_diff):
-                data_filt.iloc[ind].wm += data_filt.iloc[ind-1].wm
-                data_filt.iloc[ind].gm += data_filt.iloc[ind-1].gm
-                if data_filt.iloc[ind].wadc >= data_filt.iloc[ind-1].wadc:
-                    pass
-                else:
-                    data_filt.iloc[ind].wch=data_filt.iloc[ind-1].wch
-                if data_filt.iloc[ind].gadc >= data_filt.iloc[ind-1].gadc:
-                    pass
-                else:
-                    data_filt.iloc[ind].gch=data_filt.iloc[ind-1].gch
-                data_filt.iloc[ind].wadc += data_filt.iloc[ind-1].wadc
-                data_filt.iloc[ind].gadc += data_filt.iloc[ind-1].gadc
-        if ind < len(data_filt) -1:
-            diff_new=abs(data_filt.iloc[ind].time - data_filt.iloc[ind+1].time)
-            if (diff_new<time_diff):
-                data_filt.iloc[ind].wm += data_filt.iloc[ind+1].wm
-                data_filt.iloc[ind].gm += data_filt.iloc[ind+1].gm
-                if data_filt.iloc[ind].wadc >= data_filt.iloc[ind+1].wadc:
-                    pass
-                else:
-                    data_filt.iloc[ind].wch=data_filt.iloc[ind+1].wch
-                if data_filt.iloc[ind].gadc >= data_filt.iloc[ind+1].gadc:
-                    pass
-                else:
-                    data_filt.iloc[ind].gch=data_filt.iloc[ind+1].gch
-                data_filt.iloc[ind].wadc += data_filt.iloc[ind+1].wadc
-                data_filt.iloc[ind].gadc += data_filt.iloc[ind+1].gadc
-        if ind % (len(data_filt)//10) == 1:
-            percentage_finished = int(round((ind/len(data_filt))*100))
-            # Decide how much of the data should be read
-            if percentage_finished>100:
-                stop=True
-            clear_output(wait=True)
-            #print('Percentage: %d' % percentage_finished)
-            print('Mearging clusters')
-            print((percentage_finished//10)* '*' +(40-percentage_finished//10)*' ' + str(percentage_finished) + ' %' )   
-    clear_output(wait=True)
-    print(40*' '+'Finished mearging clusters')   
-
-    data = None
-    
-    return data_filt

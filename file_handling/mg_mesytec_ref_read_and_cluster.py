@@ -75,6 +75,7 @@ def unzip_data(zip_source):
         zip_ref.extractall(zip_temp_folder)
         temp_list = os.listdir(zip_temp_folder)
         source_file = None
+        print(temp_list)
         for temp_file in temp_list:
             if temp_file[-8:] == '.mvmelst':
                 source_file = temp_file

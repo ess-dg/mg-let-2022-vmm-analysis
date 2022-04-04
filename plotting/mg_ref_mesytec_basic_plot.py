@@ -4,14 +4,24 @@
 mg_basic_plot.py: Contains the basic functions to plot Multi-Grid data.
 """
 import os
+import matplotlib.font_manager
+matplotlib.font_manager._rebuild()
 import matplotlib.pyplot as plt
+from matplotlib import rc
 from matplotlib.colors import LogNorm
 import matplotlib.patheffects as path_effects
 import numpy as np
 import pandas as pd
 
 import plotting.helper_functions as plotting_hf
-import file_handling.mg_mesytec_manage_seq as mg_manage
+import file_handling.mg_mesytec_manage_ref as mg_manage
+import matplotlib.font_manager
+
+
+
+
+
+
 
 # ==============================================================================
 #                                   PHS (1D)
@@ -92,11 +102,11 @@ def phs_2d_plot(events, bus, vmin, vmax):
     plt.xlabel('Channel')
     plt.ylabel('Charge (ADC channels)')
     plt.title('Bus: %d' % bus)
-    bins = [120, 4095]
+    bins = [133,4095]
     if events.shape[0] > 1:
         plt.hist2d(events.ch, events.adc, bins=bins,
                    norm=LogNorm(vmin=vmin, vmax=vmax),
-                   range=[[-0.5, 119.5], [0, 4400]],
+                   range=[[-0.5, 132.5], [0, 4400]],
                    cmap='jet')
     cbar = plt.colorbar()
     cbar.set_label('Counts')
@@ -159,8 +169,8 @@ def clusters_2d_plot(clusters, title, vmin, vmax, duration):
 
     """
 
-    plt.hist2d(clusters.wch, clusters.gch, bins=[80, 40],
-               range=[[-0.5, 79.5], [79.5, 119.5]],
+    plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
                norm=LogNorm(vmin=vmin, vmax=vmax),
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wch)))
@@ -222,8 +232,8 @@ def multiplicity_plot(clusters, bus, duration, vmin=None, vmax=None):
     plt.yticks(locs_y, ticks_y)
     plt.xlabel("Wire multiplicity")
     plt.ylabel("Grid multiplicity")
-    #cbar = plt.colorbar()
-    #cbar.set_label('Counts/s')
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
     plt.title('Bus: %d' % bus)
     #plt.tight_layout()
 
@@ -287,7 +297,7 @@ def grid_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.gch, bins=40, zorder=4, range=[79.5, 119.5],
+    plt.hist(clusters.gch, bins=37, zorder=4, range=[95.5, 132.5],
              weights=(1/duration)*np.ones(len(clusters.gch)),
              histtype='step', color='black')
 
@@ -317,7 +327,7 @@ def wire_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.wch, bins=80, zorder=4, range=[-0.5, 79.5],
+    plt.hist(clusters.wch, bins=96, zorder=4, range=[-0.5, 95.5],
              weights=(1/duration)*np.ones(len(clusters.wch)),
              histtype='step', color='black')
 
@@ -365,7 +375,6 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
         os.mkdir('../output/%s_%d' % (run,bus))
     except:
         pass
-        
     output_path = '../output/%s_%d/%s_summary_bus_%d' % (run,bus,run, bus)
 
     # Filter clusters
@@ -380,10 +389,10 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     events_bus = events[events.bus == bus]
     clusters_bus = clusters[clusters.bus == bus]
     clusters_uf_bus = clusters_unfiltered[clusters_unfiltered.bus == bus]
-    
 
     fig = plt.figure()
-    
+
+
     plt.rcParams['font.family'] = 'DeJavu Serif'
     plt.rcParams['font.serif'] = ['Computer Modern']
     plt.suptitle(plot_title, fontsize=15, fontweight='bold', y=1.00005)
@@ -394,6 +403,8 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     if events_bus.shape[0] > 0:
         phs_2d_plot(events_bus, bus, vmin, vmax)
     plt.title('PHS vs Channel')
+    if save:
+        plt.savefig(output_path+'_PHS_vs_chan.png', bbox_inches='tight')
 
     # PHS - 1D
     plt.subplot(4, 2, 2)
@@ -401,6 +412,8 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     phs_1d_plot(clusters_bus, clusters_uf_bus, bins_phs_1d, bus, duration)
     plt.yscale('log')
     plt.title('PHS')
+    if save:
+        plt.savefig(output_path+'_PHS.png', bbox_inches='tight')
 
     # Coincidences - 2D
     plt.subplot(4, 2, 5)
@@ -422,19 +435,24 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
                                                                       events_per_s_m2_error))
     if number_events > 1:
         clusters_2d_plot(clusters_bus, title, vmin, vmax, duration)
+    if save:
+        plt.savefig(output_path+'_coince_num.png', bbox_inches='tight')
 
     # Rate
     plt.subplot(4, 2, 6)
     number_bins = 40
     rate_plot(clusters_bus, number_bins, bus)
     plt.title('Rate vs time')
+    if save:
+        plt.savefig(output_path+'_Rate_vs_time..png', bbox_inches='tight')
 
     # Multiplicity
-    if clusters_bus.shape[0] > 10:
-        plt.subplot(4, 2, 3)
-        multiplicity_plot(clusters_bus, bus, duration,vmin,vmax)
-        plt.title('Event multiplicity')
-    
+    plt.subplot(4, 2, 3)
+    if clusters_bus.shape[0] > 1:
+        multiplicity_plot(clusters_bus, bus, duration)
+    plt.title('Event multiplicity')
+    if save:
+        plt.savefig(output_path+'_Clu_mul.png', bbox_inches='tight')
 
     # Coincidences - PHS
     plt.subplot(4, 2, 4)
@@ -448,16 +466,22 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     if clusters_bus.shape[0] > 1:
         clusters_phs_plot(clusters_bus, bus, duration, vmin, vmax)
     plt.title('Charge coincidences')
+    if save:
+        plt.savefig(output_path+'_coince_charge.png', bbox_inches='tight')
 
     # Uniformity - grids
     plt.subplot(4, 2, 8)
     grid_histogram(clusters_bus, bus, duration)
     plt.title('Uniformity - grids')
+    if save:
+        plt.savefig(output_path+'_Uni_gr.png', bbox_inches='tight')
 
     # Uniformity - wires
     plt.subplot(4, 2, 7)
     wire_histogram(clusters_bus, bus, duration)
     plt.title('Uniformity - wires')
+    if save:
+        plt.savefig(output_path+'_Uni_wi.png', bbox_inches='tight')
 
     # Save data
     fig.set_figwidth(10)
@@ -574,7 +598,6 @@ def mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, are
                                                                       events_per_s_m2_error))
     if number_events > 1:
         clusters_2d_plot(clusters_bus, title, vmin, vmax, duration)
-
     fig.savefig(output_path+'_coince_num.png', bbox_inches='tight')
 
     # Rate
@@ -597,13 +620,13 @@ def mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, are
     fig.savefig(output_path+'_Rate_vs_time_lin..png', bbox_inches='tight')
     
     # Multiplicity
+    fig = plt.figure()
+    plt.rcParams['font.family'] = 'DeJavu Serif'
+    plt.rcParams['font.serif'] = ['Computer Modern']
     if clusters_bus.shape[0] > 1:
-        fig = plt.figure()
-        plt.rcParams['font.family'] = 'DeJavu Serif'
-        plt.rcParams['font.serif'] = ['Computer Modern']
-        multiplicity_plot(clusters_bus, bus, duration,vmin,vmax)
-        plt.title('Event multiplicity')
-        fig.savefig(output_path+'_Clu_mul.png', bbox_inches='tight')
+        multiplicity_plot(clusters_bus, bus, duration)
+    plt.title('Event multiplicity')
+    fig.savefig(output_path+'_Clu_mul.png', bbox_inches='tight')
 
     # Coincidences - PHS
     fig = plt.figure()
@@ -636,8 +659,9 @@ def mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, are
     wire_histogram(clusters_bus, bus, duration)
     plt.title('Uniformity - wires')
     fig.savefig(output_path+'_Uni_wi.png', bbox_inches='tight')
+
 # ==============================================================================
-#                  PLOT ALL BASIC PLOTS FOR TWO OR MORE BUSSES 
+#          PLOT Charge distrobution for clusters with more than one grid 
 # ==============================================================================
 
 def mg_plot_grid_distrobution(clusters_unfiltered,gm=5,num_to_plot=1,
@@ -647,7 +671,7 @@ def mg_plot_grid_distrobution(clusters_unfiltered,gm=5,num_to_plot=1,
     This to be able to see if the "brag peak" is pressent in the case of more grids being activated. Returns number of events with this multiplicety for the data provided.
 
     """
-    plt.clf()
+    fig = plt.figure()   
     plotting_hf.set_thick_labels(15)
     
     indx_most_grids=(clusters_unfiltered.gm).idxmax()
@@ -658,17 +682,304 @@ def mg_plot_grid_distrobution(clusters_unfiltered,gm=5,num_to_plot=1,
     index=clusters.index.tolist()
     num_itms=len(index)
     if num_itms> num_to_plot:
-        index=index[0:num_to_plot-1]
+        index=index[0:num_to_plot]
     if num_itms<=0: 
         print('No events with this multiplicety: ', gm)
         return 0
         
     print('Number of events with this multiplicety: ', num_itms)
     for ind in index:
-        channel_nr=[clusters.gcha[ind], clusters.gchb[ind],           clusters.gchc[ind],clusters.gchd[ind],clusters.gche[ind]]
-        charge=[clusters.gadca[ind], clusters.gadcb[ind], clusters.gadcc[ind],clusters.gadcd[ind],clusters.gadce[ind]]
+        channel_nr=[clusters.gch1[ind], clusters.gch2[ind], clusters.gch3[ind],clusters.gch4[ind],clusters.gch5[ind],clusters.gch[ind]]
+        charge=[clusters.gadc1[ind], clusters.gadc2[ind], clusters.gadc3[ind],clusters.gadc4[ind],clusters.gadc5[ind],clusters.gadc[ind]]
         plt.scatter(channel_nr,charge)
         print('The number of "skipped" grids are: ',clusters.max_dist[ind])
-        plt.show()
+    plt.show()
     return num_itms  
+
+
+# ==============================================================================
+#          PLOT Pulse height spectra for 3 buses
+# ==============================================================================
+
+def mg_plot_pulses(title, bus0, bus1, bus2, clusters0, events0, clusters1, events1, clusters2, event2):
+    """
+    This function plottes the pulse height spectra from 3 busses. Obs: all filters and such have to be aplied beforehand
     
+    Args:
+        title: title of plot and filename
+        bus0 (int): Firts bus
+        bus1 (int): Second bus
+        bus2 (int): Third bus
+        clusters0: dataframe with all clusters belonging to bus0
+        event0: dataframe with all events belonging to bus0
+        clusters1: dataframe with all clusters belonging to bus1
+        event1: dataframe with all events belonging to bus1
+        clusters2: dataframe with all clusters belonging to bus2
+        event2: dataframe with all events belonging to bus2
+
+    Yields:
+        Plots a superposition of the PHS from 3 busses
+
+    """
+    plt.clf()
+    fig = plt.figure()
+    number_bins=100
+    if clusters0.size>100: 
+        duration0 = (clusters0.time.values[-1] - clusters0.time.values[0]) * 62.5e-9
+        plt.hist(clusters0.wadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 5000], label='Wires: bus %d' % bus0, color='forestgreen',
+             weights=(1/duration0)*np.ones(len(clusters0.wadc)))
+        plt.hist(clusters0.gadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 5000], label='Grids: bus %d' % bus0, color='lime',
+             weights=(1/duration0)*np.ones(len(clusters0.gadc)))
+    
+    if clusters1.size>100:
+        duration1 = (clusters1.time.values[-1] - clusters1.time.values[0]) * 62.5e-9
+        plt.hist(clusters1.wadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 5000], label='Wires: bus %d' % bus1, color='darkorange',
+             weights=(1/duration1)*np.ones(len(clusters1.wadc)))
+        plt.hist(clusters1.gadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 5000], label='Grids: bus %d' % bus1, color='brown',
+             weights=(1/duration1)*np.ones(len(clusters1.gadc)))
+        
+    if clusters2.size>100:
+        duration2 = (clusters2.time.values[-1] - clusters2.time.values[0]) * 62.5e-9
+        plt.hist(clusters2.wadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 5000], label='Wires: bus %d' % bus2, color='blue',
+             weights=(1/duration2)*np.ones(len(clusters2.wadc)))
+        plt.hist(clusters2.gadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 5000], label='Grids: bus %d' % bus2, color='magenta',
+             weights=(1/duration2)*np.ones(len(clusters2.gadc)))
+   
+    plt.xlabel('Charge (ADC channels)')
+    plt.ylabel('Counts/s')
+    plt.grid(True, which='major', linestyle='--', zorder=0)
+    plt.grid(True, which='minor', linestyle='--', zorder=0)
+    #plt.ylim(1e-5, 1)
+    plt.title(title)
+    plt.legend()
+    #plt.yscale('log')
+    plt.show()
+    output_path = '../output/%s_PHS.png' % title
+    plt.savefig(output_path, bbox_inches='tight')
+    
+# ==============================================================================
+#          PLOT Charge distrobution for clusters with more than one grid 
+# ==============================================================================
+
+def plot_charge_distr(clusters_unfiltered,grid_channels, grid_adc):
+    """
+    Function to plot the charge distrobution in a histogram for the detection with the most grids connected to it.
+    This to be able to see if the "brag peak" is pressent in the case of more grids being activated. Returns number of events with this multiplicety for the data provided.
+
+    """
+    fig = plt.figure()   
+    plotting_hf.set_thick_labels(15)
+
+    
+    clusters = clusters_unfiltered[clusters_unfiltered.gm>2]
+    #print(clusters)
+    index=clusters.index.tolist()
+    num_itms=len(index)
+    charges_tot=np.zeros(40,dtype=int)
+    channels_all=[]
+    channels_all_adc=[]
+    if num_itms<=0: 
+        print('No clusters with more than 2 grids in coincidence')
+        return 0
+    print('Number of clusters with more than 2 grids in coincidence: ', num_itms)
+    for ind in index:
+        gm= clusters.gm[ind]
+        gr_max= clusters.gch_max[ind]
+        channel_nr=list(grid_channels[ind][:gm])
+        if -1 in channel_nr:
+            print(channel_nr)
+            channel_nr.remove(-1)
+        
+        dist_ch= [(x-gr_max) for x in channel_nr]
+        abs_dist_ch= [abs(x-gr_max) for x in channel_nr]
+        if abs_dist_ch.count(max(abs_dist_ch))==1:
+            if dist_ch[abs_dist_ch.index(max(abs_dist_ch))] > 0:
+                dist_ch= [(-x) for x in dist_ch] 
+        charge=list(grid_adc[ind][:gm])
+        channels_all += dist_ch
+        channels_all_adc += charge
+        if len([*filter(lambda x: x < -40, dist_ch)]) > 0:
+            print('Channel list: ', channel_nr)
+            print('Max channel: ',gr_max)
+            print('Distance list: ', dist_ch)
+        for ch_ind in range(len(dist_ch)):
+            charges_tot[dist_ch[ch_ind]+20] += charge[ch_ind]
+    
+    plt.hist(channels_all,bins=11,range=[-5.5,5.5], weights=channels_all_adc)  
+    #plt.plot(charges_tot)
+    #plt.yscale('log')
+    plt.show()
+    
+    return charges_tot
+
+# ==============================================================================
+#          PLOT PHS for a list of wires from a dataset with clusters
+# ==============================================================================
+
+
+def mg_plot_wires(title, clusters, wires, save):
+    """
+    This function plots the pulse height spectra from a list of wires
+    
+    Args:
+        title: title of plot and filename
+        clusters (df): dataframe of clusters
+        wires (list): List of wires to look at
+        save (bolean): True if the image is to be saved, false otherwise
+
+    Yields:
+        Plots a superposition of the PHS from the wires in the list
+
+    """
+    fig = plt.figure()
+    number_bins=50
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    colors=['blue', 'green', 'orange', 'firebrick', 'magenta']
+    int=0
+    for w in wires:
+        clusters_w=clusters[clusters['wch']==w]
+        plt.hist(clusters_w.wadc, bins=number_bins, histtype='step', color =colors[int],
+                 zorder=5, range=[0, 5000], label='Wire:  %d' % w,
+                 weights=(1/duration)*np.ones(len(clusters_w.wadc)))
+        int +=1
+
+    plt.xlabel('Charge (ADC channels)')
+    plt.ylabel('Counts/s')
+    plt.grid(True, which='major', linestyle='--', zorder=0)
+    plt.grid(True, which='minor', linestyle='--', zorder=0)
+    #plt.ylim(1e-5, 1)
+    plt.title(title)
+    plt.legend()
+    plt.yscale('log')
+    plt.show()
+    fig.set_figwidth(7)
+    fig.set_figheight(5)
+    plt.tight_layout()
+    if save: 
+        output_path = '../output/%s_PHS.png' % title
+        plt.savefig(output_path, bbox_inches='tight')
+
+# ==============================================================================
+#          PLOT PHS for a list of wires from a dataset with clusters
+# ==============================================================================
+
+
+def mg_plot_wires_sep(title, clusters, wires, save):
+    """
+    This function plots the pulse height spectra from a list of wires
+    
+    Args:
+        title: title of plot and filename
+        clusters (df): dataframe of clusters
+        wires (list): List of wires to look at
+        save (bolean): True if the image is to be saved, false otherwise
+
+    Yields:
+        Plots a superposition of the PHS from the wires in the list
+
+    """
+    number_bins=50
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    colors=['blue', 'green', 'orange', 'firebrick', 'magenta']
+    int=0;
+    for w in wires:
+        fig = plt.figure()
+        clusters_w=clusters[clusters['wch']==w]
+        plt.hist(clusters_w.wadc, bins=number_bins, histtype='step',
+                 zorder=5, range=[0, 5000], label='Wire:  %d' % w, color =colors[int],
+                 weights=(1/duration)*np.ones(len(clusters_w.wadc)))
+        plt.xlabel('Charge (ADC channels)')
+        plt.ylabel('Counts/s')
+        plt.grid(True, which='major', linestyle='--', zorder=0)
+        plt.grid(True, which='minor', linestyle='--', zorder=0)
+        plt.title(title)
+        plt.legend()
+        plt.yscale('log')
+        plt.show()
+        int += 1
+    mg_plot_wires(title, clusters, wires, save)
+
+# ===================================================================================================================================
+#        Plot the charge distrobution with: linefitting + standard deviation in x and y
+# ===================================================================================================================================
+
+
+def mg_charge_dist(title, clusters_use, bus, save):    
+    """
+    This function plots the pulse height spectra from a list of wires
+    
+    Args:
+        title: title of plot and filename
+        clusters (df): dataframe of clusters
+        save (bolean): True if the image is to be saved, false otherwise
+
+    Yields:
+        Plots a charge distrobution with a linefitting inclusing the standard deviation in x and y
+
+    """
+    from matplotlib.colors import LogNorm
+    from scipy.stats import linregress
+    fig = plt.figure()
+    duration = (clusters_use.time.values[-1] - clusters_use.time.values[0]) * 62.5e-9
+    vmin = 1/duration
+    vmax = (clusters_use.shape[0] // 450 + 1000) / duration
+    plt.xlabel('Charge wires (ADC channels)')
+    plt.ylabel('Charge grids (ADC channels)')
+    bins = [4095, 4095]
+    ADC_range = [[0, 4095], [0, 4095]]
+    plt.hist2d(clusters_use.wadc, clusters_use.gadc, bins=bins,norm=LogNorm(vmin=vmin, vmax=vmax),range=ADC_range, cmap='jet',weights=(1/duration)*np.ones(len(clusters_use.wadc)))
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
+    result = linregress(clusters_use.wadc,clusters_use.gadc)
+    stand_x=np.sqrt(sum([i**2 for i in (clusters_use.wadc-((clusters_use.gadc-result.intercept)/result.slope))])/len(clusters_use.wadc))
+    stand_y=np.sqrt(sum([i**2 for i in (clusters_use.gadc-(clusters_use.wadc*result.slope+result.intercept))])/len(clusters_use.gadc))
+    plt.plot(clusters_use.wadc,result.intercept+result.slope*clusters_use.wadc,color='black')
+    plt.plot(clusters_use.wadc,result.intercept+stand_y+result.slope*clusters_use.wadc, color='green',label='S gradc:  %.3f' % stand_y)
+    plt.plot(clusters_use.wadc,result.intercept-stand_y+result.slope*clusters_use.wadc, color='green',label='S gradc:  %.3f' % stand_y)
+    plt.plot(clusters_use.wadc+stand_x,result.intercept+result.slope*(clusters_use.wadc), linestyle='dashed',color='red',label='S wadc:  %.3f' % stand_x)
+    plt.plot(clusters_use.wadc-stand_x,result.intercept+result.slope*(clusters_use.wadc), linestyle='dashed',color='red',label='S wadc:  %.3f' % stand_x)    
+    plt.legend()
+    plt.title('')
+    plt.text(200,3500,'Standard deviation in wadc: %.3f\n Standard deviation in gradc: %.3f ' %(stand_x, stand_y))
+    plt.text(500,300,'Regression line: gradc = %.3f + %.3f * wadc ' %(result.intercept,result.slope))
+    print(stand_x,stand_y)
+    plt.show()
+    if save: 
+        output_path = '../output/%s_PHS.png' % title
+        plt.savefig(output_path, bbox_inches='tight')
+        
+
+# ===================================================================================================================================
+#        Plot the time difference distrobution
+# ===================================================================================================================================
+
+
+def mg_time_diff(clusters):    
+    """
+    This function plots the time difference between clusters in a histogram
+    
+    Args:
+        clusters = datafram with clusters
+    Yields:
+        Plots a histogram of the time distrobution
+
+    """
+    fig = plt.figure()
+    tdc_to_s= 62.5e-9
+    delta_time = [x*tdc_to_s for x in np.diff(clusters.time) ]
+    # Histogram data
+    log_bins = np.logspace(-10, 3, 1000)
+    plt.hist(delta_time, bins=log_bins, color='black', histtype='step')
+    plt.grid(True, which='major', linestyle='--', zorder=0)
+    plt.grid(True, which='minor', linestyle='--', zorder=0)
+    plt.xlabel("Delta time (s)")
+    plt.xscale('log')
+    plt.xlim(1e-10, 1e3)
+    plt.yscale('log')
+    print((delta_time.count(0)))
