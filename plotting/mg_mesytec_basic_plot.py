@@ -465,6 +465,12 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     plt.tight_layout()
     if save:
         fig.savefig(output_path+'.png', bbox_inches='tight')
+        # open file for writing the filter
+        f = open("../output/%s_%d/filter.txt" % (run,bus),"w+")
+        # write file
+        f.write( str(df_filter) )
+        # close file
+        f.close()
         mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,save=True,
                       plot_title='')
         

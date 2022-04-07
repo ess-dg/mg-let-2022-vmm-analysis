@@ -219,19 +219,22 @@ def extract_clusters(data):
     for i, word in enumerate(data):
         # Five possibilities: Header, DataBusStart, DataEvent, DataExTs or EoE.
         if (word & TYPE_MASK) == HEADER:
+            #print('HEADER')
             str_grch=' '
             str_gradc= ' '
             is_open = True
             is_trigger = (word & TRIGGER_MASK) == TRIGGER
+            max_adc_w, max_adc_g = 0, 0
+            ce_index += 1
         elif ((word & DATA_MASK) == DATA_BUS_START) & is_open:
+            #print('DATA')
             # Extract Bus
             bus = (word & BUS_MASK) >> BUS_SHIFT
             is_data = True
             # Initiate temporary cluster variables and increase cluster index
             previous_bus = bus
-            max_adc_w, max_adc_g = 0, 0
-            ce_index += 1
         elif ((word & DATA_MASK) == DATA_EVENT) & is_open:
+            #print('EVENT')
             # Extract Channel and ADC
             channel = ((word & CHANNEL_MASK) >> CHANNEL_SHIFT)
             adc = (word & ADC_MASK)
@@ -244,15 +247,19 @@ def extract_clusters(data):
                 if ch_new != -1:
                     if ((bus == 3) and (0 <= ch_new <= 32)):
                         # Save to new channels so all wires are beside eachother in the same bus
+                        #print('Bus %d' %bus)
+                        #print('Wch %d' %(ch_new ^1))
                         ce_dict['bus'][ce_index] = 9
                         ce_dict['wadc'][ce_index] += adc
                         ce_dict['wm'][ce_index] += 1
                         if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, ch_new ^ 1
                     elif (bus==2):
+                        #print('Bus %d' %bus)
                         # Save to new channels so all wires are beside eachother in the same bus
                         ce_dict['bus'][ce_index] = 9
                         ce_dict['wadc'][ce_index] += adc
                         ce_dict['wm'][ce_index] += 1
+                        #print('Wch %d' %((32+ch_new) ^1))
                         if adc > max_adc_w: max_adc_w, ce_dict['wch'][ce_index] = adc, (32+ch_new) ^ 1
                     else:
                         pass
@@ -262,21 +269,24 @@ def extract_clusters(data):
                 ch_new = reorder_gr_channles(channel)
                 if (ch_new != -1):
                     # Rename bus to bus 9
+                    #print('Bus %d' %bus)
+                    #print('Gch %d' %(ch_new ^1))
                     ce_dict['bus'][ce_index] = 9
                     ce_dict['gridch'][ce_index][ce_dict['gm'][ce_index]]=ch_new
                     ce_dict['gridadc'][ce_index][ce_dict['gm'][ce_index]]=adc
                     ce_dict['gm'][ce_index] += 1
-                    ce_dict['bus_sub'][ce_index]=bus
                     ce_dict['gadc'][ce_index] += adc
                     # Use grid with largest collected charge as hit position
                     if adc > max_adc_g: max_adc_g, ce_dict['gch_max'][ce_index] = adc, ch_new
         elif ((word & DATA_MASK) == DATA_EXTS) & is_open:
+            #print('EXT')
             extended_time_stamp = (word & EXTS_MASK) << EXTS_SHIFT
             is_exts = True
         elif ((word & TYPE_MASK) == EOE) & is_open:
             # Extract time_timestamp and add extended timestamp, if ExTs is used
             time_stamp = (word & TIMESTAMP_MASK)
             time = (extended_time_stamp | time_stamp) if is_exts else time_stamp
+            #print('TIME: %d' %time)
             # Update Triggertime, if this was a trigger event
             if is_trigger: trigger_time = time
             # Save cluster data
@@ -311,8 +321,8 @@ def extract_clusters(data):
                 # Reset temporary variables, related to data in events
                 previous_bus, bus = -1, -1
                 max_adc_w, max_adc_g = 0, 0
-            # Reset temporary boolean variables, related to word-headers
-            is_open, is_trigger, is_data = False, False, False
+                # Reset temporary boolean variables, related to word-headers
+                is_open, is_trigger, is_data = False, False, False
                 
         # Print progress of clustering process
         if stop:

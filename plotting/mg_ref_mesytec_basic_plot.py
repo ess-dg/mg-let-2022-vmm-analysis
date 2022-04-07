@@ -9,7 +9,10 @@ matplotlib.font_manager._rebuild()
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib.colors import LogNorm
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator
 import matplotlib.patheffects as path_effects
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pandas as pd
 
@@ -169,11 +172,50 @@ def clusters_2d_plot(clusters, title, vmin, vmax, duration):
 
     """
 
-    plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+    
+    hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
                range=[[-0.5, 95.5], [95.5, 132.5]],
-               norm=LogNorm(vmin=vmin, vmax=vmax),
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wch)))
+    plt.xlabel('Wire (Channel number)')
+    plt.ylabel('Grid (Channel number)')
+    plt.title(title)
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
+    
+
+# ==============================================================================
+#                          COINCIDENCE SURFACE (3D)
+# ==============================================================================
+
+def clusters_3d_plot(clusters, title, vmin, vmax, duration):
+    """
+    Plots a 2D histograms of clusters: wires vs grids.
+
+    Args:
+        clusters (DataFrame): Clustered events, filtered
+        vmin (float): Minimum value on color scale
+        vmax (float): Maximum value on color scale
+        duration (float): Measurement duration in seconds
+
+    Yields:
+        Plot containing the 2D coincidences
+
+    """
+    #surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
+    #                   linewidth=0, antialiased=False)
+    #ax.plot_surface(clusters.wch,clusters.gch_max,)
+    hf=plt.figure()
+    hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    ha = hf.add_subplot(111, projection='3d')                                    
+    X,Y=np.meshgrid(xedges,yedges)
+    print(len(X))
+    print(len(Y))
+    print(len(hist[0]))
+    ha.plot_surface(X,Y,hist,cmap=cm.jet,linewidth=0,antialiased=False)
     plt.xlabel('Wire (Channel number)')
     plt.ylabel('Grid (Channel number)')
     plt.title(title)
@@ -297,7 +339,7 @@ def grid_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.gch, bins=37, zorder=4, range=[95.5, 132.5],
+    plt.hist(clusters.gch_max, bins=37, zorder=4, range=[95.5, 132.5],
              weights=(1/duration)*np.ones(len(clusters.gch)),
              histtype='step', color='black')
 
@@ -403,8 +445,6 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     if events_bus.shape[0] > 0:
         phs_2d_plot(events_bus, bus, vmin, vmax)
     plt.title('PHS vs Channel')
-    if save:
-        plt.savefig(output_path+'_PHS_vs_chan.png', bbox_inches='tight')
 
     # PHS - 1D
     plt.subplot(4, 2, 2)
@@ -412,8 +452,6 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     phs_1d_plot(clusters_bus, clusters_uf_bus, bins_phs_1d, bus, duration)
     plt.yscale('log')
     plt.title('PHS')
-    if save:
-        plt.savefig(output_path+'_PHS.png', bbox_inches='tight')
 
     # Coincidences - 2D
     plt.subplot(4, 2, 5)
@@ -435,24 +473,19 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
                                                                       events_per_s_m2_error))
     if number_events > 1:
         clusters_2d_plot(clusters_bus, title, vmin, vmax, duration)
-    if save:
-        plt.savefig(output_path+'_coince_num.png', bbox_inches='tight')
 
     # Rate
     plt.subplot(4, 2, 6)
     number_bins = 40
     rate_plot(clusters_bus, number_bins, bus)
     plt.title('Rate vs time')
-    if save:
-        plt.savefig(output_path+'_Rate_vs_time..png', bbox_inches='tight')
 
     # Multiplicity
     plt.subplot(4, 2, 3)
     if clusters_bus.shape[0] > 1:
         multiplicity_plot(clusters_bus, bus, duration)
     plt.title('Event multiplicity')
-    if save:
-        plt.savefig(output_path+'_Clu_mul.png', bbox_inches='tight')
+
 
     # Coincidences - PHS
     plt.subplot(4, 2, 4)
@@ -466,22 +499,16 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     if clusters_bus.shape[0] > 1:
         clusters_phs_plot(clusters_bus, bus, duration, vmin, vmax)
     plt.title('Charge coincidences')
-    if save:
-        plt.savefig(output_path+'_coince_charge.png', bbox_inches='tight')
 
     # Uniformity - grids
     plt.subplot(4, 2, 8)
     grid_histogram(clusters_bus, bus, duration)
     plt.title('Uniformity - grids')
-    if save:
-        plt.savefig(output_path+'_Uni_gr.png', bbox_inches='tight')
 
     # Uniformity - wires
     plt.subplot(4, 2, 7)
     wire_histogram(clusters_bus, bus, duration)
     plt.title('Uniformity - wires')
-    if save:
-        plt.savefig(output_path+'_Uni_wi.png', bbox_inches='tight')
 
     # Save data
     fig.set_figwidth(10)
@@ -489,6 +516,12 @@ def mg_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,sav
     plt.tight_layout()
     if save:
         fig.savefig(output_path+'.png', bbox_inches='tight')
+        # open file for writing the filter
+        f = open("../output/%s_%d/filter.txt" % (run,bus),"w+")
+        # write file
+        f.write( str(df_filter) )
+        # close file
+        f.close()
         mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,save=True,
                       plot_title='')
         
