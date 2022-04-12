@@ -194,7 +194,7 @@ def reorder_channels_clusters(data, num_w_in_row=16,bus1=3, rows_w1=2, num_gr1=0
     Returns:
         df (DataFrame): Data
     """
-    print('Filtering clusters')
+    print('Reordering cluster channels')
     pd.options.mode.chained_assignment = None  # default='warn'
     max_w=20        # MAximum amount of wires in one row
     diff=max_w-num_w_in_row
@@ -266,7 +266,7 @@ def reorder_channels_events(data, num_w_in_row=16, bus1=3, rows_w1=2, num_gr1=0,
         df (DataFrame): Data
     """
     pd.options.mode.chained_assignment = None  # default='warn'
-    print('Reordering clusterchannels')
+    print('Reordering cluster channels')
     list_emty_wch=[0,1,18,19,20,21,38,39,40,41,58,59,60,61,78,79,80]
     data_bus1_unfiltered=data[(data.bus==bus1)]
     data_bus2_unfiltered=data[(data.bus==bus2)]

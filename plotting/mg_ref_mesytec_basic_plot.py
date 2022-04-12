@@ -149,7 +149,7 @@ def clusters_phs_plot(clusters, bus, duration, vmin, vmax):
                range=ADC_range,
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wadc)))
-    cbar = plt.colorbar()
+    cbar = plt.colorbar(orientation='horizontal')
     cbar.set_label('Counts/s')
 
 
@@ -172,11 +172,17 @@ def clusters_2d_plot(clusters, title, vmin, vmax, duration):
 
     """
 
-    
-    hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+    try:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
                range=[[-0.5, 95.5], [95.5, 132.5]],
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wch)))
+    except:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+        
     plt.xlabel('Wire (Channel number)')
     plt.ylabel('Grid (Channel number)')
     plt.title(title)
@@ -202,25 +208,29 @@ def clusters_3d_plot(clusters, title, vmin, vmax, duration):
         Plot containing the 2D coincidences
 
     """
-    #surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
-    #                   linewidth=0, antialiased=False)
-    #ax.plot_surface(clusters.wch,clusters.gch_max,)
+
     hf=plt.figure()
-    hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+    try:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
                range=[[-0.5, 95.5], [95.5, 132.5]],
                cmap='jet',
                weights=(1/duration)*np.ones(len(clusters.wch)))
-    ha = hf.add_subplot(111, projection='3d')                                    
-    X,Y=np.meshgrid(xedges,yedges)
+    except:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    ha = hf.add_subplot(111, projection='3d')   
+    x=[i+0.5 for i in xedges]
+    y=[i+0.5 for i in yedges]
+    X,Y=np.meshgrid(x[:-1],yedges[:-1])
     print(len(X))
     print(len(Y))
     print(len(hist[0]))
-    ha.plot_surface(X,Y,hist,cmap=cm.jet,linewidth=0,antialiased=False)
+    ha.plot_surface(X,Y,np.transpose(hist),cmap=cm.jet,linewidth=0,antialiased=False)
     plt.xlabel('Wire (Channel number)')
     plt.ylabel('Grid (Channel number)')
     plt.title(title)
-    cbar = plt.colorbar()
-    cbar.set_label('Counts/s')
 
 # ==============================================================================
 #                               MULTIPLICITY
@@ -339,9 +349,15 @@ def grid_histogram(clusters, bus, duration):
     plt.grid(True, which='major', linestyle='--', zorder=0)
     plt.grid(True, which='minor', linestyle='--', zorder=0)
     # Histogram data
-    plt.hist(clusters.gch_max, bins=37, zorder=4, range=[95.5, 132.5],
+    try:
+        plt.hist(clusters.gch_max, bins=37, zorder=4, range=[95.5, 132.5],
              weights=(1/duration)*np.ones(len(clusters.gch)),
              histtype='step', color='black')
+    except:
+        plt.hist(clusters.gch, bins=37, zorder=4, range=[95.5, 132.5],
+             weights=(1/duration)*np.ones(len(clusters.gch)),
+             histtype='step', color='black')
+        
 
 
 # ==============================================================================
@@ -754,7 +770,6 @@ def mg_plot_pulses(title, bus0, bus1, bus2, clusters0, events0, clusters1, event
         Plots a superposition of the PHS from 3 busses
 
     """
-    plt.clf()
     fig = plt.figure()
     number_bins=100
     if clusters0.size>100: 
@@ -881,7 +896,6 @@ def mg_plot_wires(title, clusters, wires, save):
                  zorder=5, range=[0, 5000], label='Wire:  %d' % w,
                  weights=(1/duration)*np.ones(len(clusters_w.wadc)))
         int +=1
-
     plt.xlabel('Charge (ADC channels)')
     plt.ylabel('Counts/s')
     plt.grid(True, which='major', linestyle='--', zorder=0)
@@ -1016,3 +1030,382 @@ def mg_time_diff(clusters):
     plt.xlim(1e-10, 1e3)
     plt.yscale('log')
     print((delta_time.count(0)))
+    
+# ===================================================================================================================================
+#        Plot colormap of a grid
+# ===================================================================================================================================
+
+
+def mg_colormap_grid(clusters,gr_nm,num_rows=6):    
+    """
+     This function plots a colormap integrated over a grid
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        gr_nm (int) = gridnumber 
+    Yields:
+        Plots a colormap of the number of hits in a grid
+
+    """
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    try:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    except:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    
+    try:
+        clusters_gr=clusters[clusters.gch_max==gr_nm]
+    except:
+        clusters_gr=clusters[clusters.gch==gr_nm]    
+    fig = plt.figure()
+    fig.set_size_inches(9, 9,forward=True)
+    array=np.zeros((16,num_rows), dtype=float)
+    for i in range(num_rows):
+        for j in range(16):
+            array[j][i]=hist[(5-i)*16+j][gr_nm-96]
+            
+    plt.pcolormesh(array,cmap='jet',vmin=0, vmax=np.max(hist))
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
+    plt.title(gr_nm)
+    plt.xlabel('Wire row')
+    plt.ylabel('Wire number')
+    plt.tight_layout()
+    plt.show
+    
+# ===================================================================================================================================
+#        Plot colormap of a set of grids
+# ===================================================================================================================================
+
+
+def mg_colormap_grids(clusters,gr_list,hist,num_rows=6):    
+    """
+     This function plots a colormap integrated over grids
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        gr_list (int) = list of gridnumbers
+    Yields:
+        Plots a colormap of the number of hits in a grid
+
+    """
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    try:
+        clusters_gr=clusters[clusters.gch_max.isin(gr_list)]
+    except:
+        clusters_gr=clusters[clusters.gch.isin(gr_list)]    
+    #fig = plt.figure()
+    #fig.set_size_inches(9, 9,forward=True)
+    array=np.zeros((16,num_rows), dtype=float)
+    for i in range(num_rows):
+        for j in range(16):
+            array[j][i]=((clusters_gr[clusters_gr.wch==((5-i)*16+j)]).size)/clusters.size*100
+    plt.pcolormesh(array,cmap='jet',vmin=0, vmax=np.max(array))
+    cbar = plt.colorbar(orientation='horizontal')
+    cbar.set_label('% of total counts')
+    #plt.title('First grid: %d , Last grid: %d' %(gr_list[0],gr_list[-1]))
+    plt.xlabel('Wire row')
+    plt.ylabel('Wire number')
+    plt.show
+    
+# ===================================================================================================================================
+#        Plot colormap of set of layers seen as from the front of the detector
+# ===================================================================================================================================
+
+
+def mg_colormap_layers(clusters,layer_list,hist,num_rows=6):    
+    """
+    This function plots a colormap integrated over layers 
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        layer_list (int) = first and last layer to be integrated (first: 0, last: 15)
+    Yields:
+        Plots a colormap of the layers
+
+    """
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    #fig.set_size_inches(5, 20,forward=True)
+    array=np.zeros((37,num_rows), dtype=float)
+    for i in range(num_rows):
+        for j in range(37):
+            for int in range(layer_list[0],layer_list[-1]+1):
+                array[j][i] += hist[16*(5-i)+int][j]
+                              
+    plt.pcolormesh(array,cmap='jet',vmin=0, vmax=np.max(array))
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
+    plt.title('First wire: %d , Last wire: %d' %(layer_list[0],layer_list[-1]))
+    plt.xlabel('Wire row')
+    plt.ylabel('Grid number')
+    plt.show
+    
+# ===================================================================================================================================
+#        Plot colormap of one row of wires , see the detector from the right
+# ===================================================================================================================================
+
+
+def mg_colormap_wirerows(clusters,row_num):    
+    """
+    This function plots a colormap integrated over layers 
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        row_num (int) = which row of wires is studied [1,6]
+    Yields:
+        Plots a colormap of the layers
+
+    """
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+ 
+    
+    try:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    except:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+        
+    fig = plt.figure()
+    fig.set_size_inches(5, 20,forward=True)
+    array=np.zeros((37,16), dtype=float)
+    for i in range(16):
+        for j in range(37):
+            array[j][i] = hist[row_num*16+i][j]
+                              
+    plt.pcolormesh(array,cmap='jet',vmin=0, vmax=np.max(hist))
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
+    plt.title('Row number: %d' %row_num)
+    plt.xlabel('Wire number')
+    plt.ylabel('Grid number')
+    plt.tight_layout()
+    plt.show
+
+# ===================================================================================================================================
+#        Plot colormap of all row of wires (integrated), see the detector from the right
+# ===================================================================================================================================
+
+
+def mg_colormap_wirerows_int(clusters,num_row,hist):    
+    """
+    This function plots a colormap integrated over layers 
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        num_row (int) = number of rows to integrate over
+    Yields:
+        Plots a colormap of the layers
+
+    """
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+        
+    #fig.set_size_inches(5, 20,forward=True)
+    array=np.zeros((37,16), dtype=float)
+    for i in range(16):
+        for j in range(37):
+            for row in range(num_row) :
+                array[j][i] += hist[(5-row)*16+i][j]
+                              
+    plt.pcolormesh(array,cmap='jet',vmin=0, vmax=np.max(array))
+    cbar = plt.colorbar()
+    cbar.set_label('Counts/s')
+    plt.xlabel('Wire number')
+    plt.ylabel('Grid number')
+    plt.show
+# ===================================================================================================================================
+#        Finds the largest peak and plots and saves 3 intersections as well as a an integrated image of all directions
+# ===================================================================================================================================
+
+
+def mg_intersect(clusters,title):    
+    """
+    This function plots a colormap integrated over layers 
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        title (string)= string for title 
+    Yields:
+        Plots a colormap of the layers
+"""
+    from numpy import unravel_index
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    try:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    except:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(projection='3d')
+
+    #index=unravel_index(hist.argmax(), hist.shape)
+
+    # For each set of style and range settings, plot n random points in the box
+    # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+    i=0
+    x=np.zeros(37*16*6, dtype=float)
+    y=np.zeros(37*16*6, dtype=float)
+    z=np.zeros(37*16*6, dtype=float)
+    t=np.zeros(37*16*6, dtype=float)
+    for gr in range(37):
+        for w in range(16):
+            for row in range(6):
+                x[i] = 5-row
+                y[i] = w
+                z[i] = gr
+                t[i]=hist[row*16+w][gr]
+                i += 1
+    figure = ax.scatter(x, y, z, c=t, cmap='jet')
+
+    ax.set_xlabel('Wire row')
+    ax.set_ylabel('Wire number')
+    ax.set_zlabel('Grid number')
+    cbar = fig.colorbar(figure)
+    cbar.set_label('Counts/s')
+    plt.tight_layout()
+    plt.show()
+
+    
+# ===================================================================================================================================
+#        Plot the ADC PHS for one a list of wires
+# ===================================================================================================================================
+
+
+def mg_row_of_wires(clusters,list_wires,gr_num):    
+    """
+    This function plots a PHS over a list of wires
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        wire_list (list) = list of wires 
+        gr_num (int) = what grid to look at
+    Yields:
+        Plots a comperaive PHS for the wires entered in wire_list
+"""
+
+
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    number_bins=300
+    try:
+        clusters_gr=clusters[clusters.gch_max==gr_num]
+    except:
+        clusters_gr=clusters[clusters.gch==gr_num]
+    
+    color=iter(cm.rainbow(np.linspace(0, 1, 16)))   
+    for wire in list_wires:
+        c = next(color)
+        clusters_w=clusters_gr[clusters_gr.wch==wire]
+        plt.hist(clusters_w.wadc, bins=number_bins, histtype='step',
+             zorder=5, range=[0, 8000], label='Wire %d' %wire,
+             weights=(1/duration)*np.ones(len(clusters_w.wadc)),color=c)
+        
+    plt.yscale('log')
+    plt.legend()
+    plt.show
+        
+    
+    
+    
+    
+# ===================================================================================================================================
+#        Plot Front, side, topp view as well as rate over time and chargecoincidence
+# ===================================================================================================================================
+
+
+def mg_plott_sum(run, clusters,area,save=False,
+                      plot_title=''):    
+    """
+    This function plots a PHS over a list of wires
+    
+    Args:
+        clusters (df) = dataframe with clusters
+        wire_list (list) = list of wires 
+        gr_num (int) = what grid to look at
+    Yields:
+        Plots a comperaive PHS for the wires entered in wire_list
+"""
+    duration = (clusters.time.values[-1] - clusters.time.values[0]) * 62.5e-9
+    try:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch_max, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    except:
+        hist,xedges,yedges,image=plt.hist2d(clusters.wch, clusters.gch, bins=[96, 37],
+               range=[[-0.5, 95.5], [95.5, 132.5]],
+               cmap='jet',
+               weights=(1/duration)*np.ones(len(clusters.wch)))
+    bus=9
+    plotting_hf.set_thick_labels(15)
+    try:
+        os.mkdir('../output/%s_%d' % (run,bus))
+    except:
+        pass
+    output_path = '../output/%s_%d/%s_summary_bus_%d' % (run,bus,run, bus)
+
+    
+    # Filter data from only one bus
+    fig=plt.figure(figsize=(12, 6))
+    plt.subplot(1,3,1)
+    mg_colormap_layers(clusters,[0,15],hist,num_rows=4)
+    plt.title('a)')
+    plt.subplot(1,3,2)
+    mg_colormap_wirerows_int(clusters,4,hist)
+    plt.title('b)')
+    plt.subplot(3,3,3)
+    mg_colormap_grids(clusters,range(97,132),hist,4)
+    plt.title('c)')
+    plt.subplot(3,3,6)
+    rate_plot(clusters, 30, 9)
+    plt.title('d)')
+    if clusters.shape[0] != 0:
+        vmin = 1/duration
+        vmax = (clusters.shape[0] // 450 + 1000) / duration
+    else:
+        duration = 1
+        vmin = 1
+        vmax = 1
+    plt.subplot(3,3,9)
+    clusters_phs_plot(clusters, 9, duration, vmin, vmax)
+    plt.title('e)')
+    
+    
+    number_events = clusters.shape[0]
+    number_events_error = np.sqrt(clusters.shape[0])
+    events_per_s = number_events/duration
+    events_per_s_m2 = events_per_s/area
+    events_per_s_m2_error = number_events_error/(duration*area)
+    title = ('Coincidences\n(%d events, %.3f±%.3f events/s/m$^2$)' % (number_events,
+                                                                      events_per_s_m2,
+                                                                      events_per_s_m2_error))
+    
+
+    # Save data
+    fig.set_figwidth(14)
+    fig.set_figheight(16)
+    plt.tight_layout()
+    if save:
+        fig.savefig(output_path+'_sides.png', bbox_inches='tight')
+        # open file for writing the filter
+        f = open("../output/%s_%d/filter.txt" % (run,bus),"w+")
+        # write file
+        f.write( str(df_filter) )
+        # close file
+        f.close()
+        mg_save_plot_basic_bus(run, bus, clusters_unfiltered, events, df_filter, area,save=True,
+                      plot_title='')
